@@ -1,11 +1,13 @@
-//app/content/resource.tsx
+//app/content/resource.tsx frontend to showcase resource
 "use client";
 import React from "react";
+import { Play, List, ExternalLink } from "lucide-react";
 
 export interface ResourceItem {
   title: string;
   description?: string;
   link?: string;
+  channel?: string;
 }
 
 export interface ResourceType {
@@ -15,38 +17,31 @@ export interface ResourceType {
 
 const mockData: ResourceType[] = [
   {
-    type: "Books",
+    type: "Top Videos",
     items: [
-      { title: "AI for Beginners", link: "#" },
-      { title: "Python Machine Learning", link: "#" },
-      { title: "Deep Learning Basics", link: "#" },
-      { title: "Artificial Intelligence: A Modern Approach", link: "#" },
-      { title: "Hands-On ML", link: "#" },
+      { 
+        title: "Python Tutorial for Beginners", 
+        description: "Complete 6-hour course covering Python fundamentals",
+        channel: "Programming with Mosh",
+        link: "#" 
+      },
+      { 
+        title: "Learn Python - Full Course", 
+        description: "4.5M views • Comprehensive beginner guide",
+        channel: "freeCodeCamp",
+        link: "#" 
+      },
     ],
   },
   {
-    type: "YouTube Playlists",
+    type: "Best Playlists",
     items: [
-      { title: "AI Full Course - FreeCodeCamp", link: "#" },
-      { title: "Machine Learning Tutorial", link: "#" },
-      { title: "Python AI Projects", link: "#" },
-    ],
-  },
-  {
-    type: "Research Papers",
-    items: [
-      { title: "A Beginner's Guide to AI", link: "#" },
-      { title: "Machine Learning Trends 2025", link: "#" },
-      { title: "Deep Learning Survey", link: "#" },
-    ],
-  },
-  {
-    type: "Roadmap Steps",
-    items: [
-      { title: "Step 1: Python Basics", link: "#" },
-      { title: "Step 2: AI Fundamentals", link: "#" },
-      { title: "Step 3: Machine Learning Intro", link: "#" },
-      { title: "Step 4: Build Projects", link: "#" },
+      { 
+        title: "Python for Everybody", 
+        description: "100+ videos • Complete beginner to advanced series",
+        channel: "Corey Schafer",
+        link: "#" 
+      },
     ],
   },
 ];
@@ -58,27 +53,87 @@ export type ResourceProps = {
 export const Resource: React.FC<ResourceProps> = ({ data }) => {
   const display = data && data.length ? data : mockData;
 
+  const getIcon = (type: string) => {
+    if (type.toLowerCase().includes("playlist")) {
+      return <List className="w-5 h-5" />;
+    }
+    return <Play className="w-5 h-5" />;
+  };
+
+  const getBadgeColor = (type: string) => {
+    if (type.toLowerCase().includes("playlist")) {
+      return "bg-purple-600";
+    }
+    return "bg-red-600";
+  };
+
   return (
-    <div className="w-full space-y-12 py-6">
+    <div className="w-full space-y-10 py-6">
       {display.map((resource) => (
         <div key={resource.type}>
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">{resource.type}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          {/* Section Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className={`${getBadgeColor(resource.type)} p-2 rounded-lg`}>
+              {getIcon(resource.type)}
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900">{resource.type}</h2>
+          </div>
+
+          {/* YouTube-Style Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {resource.items.map((item, index) => (
               <a
                 key={index}
                 href={item.link || "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="relative p-6 rounded-2xl overflow-hidden group cursor-pointer bg-white border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                className="group block bg-white rounded-xl overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-100"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-0 group-hover:opacity-5 rounded-2xl transition-opacity"></div>
-                <div className="relative z-10">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">
+                {/* Thumbnail Area */}
+                <div className="relative bg-gradient-to-br from-gray-900 to-gray-700 aspect-video flex items-center justify-center overflow-hidden">
+                  {/* Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                  
+                  {/* Play Icon */}
+                  <div className="relative z-10 bg-red-600 rounded-full p-4 group-hover:scale-110 transition-transform duration-300 shadow-xl">
+                    {getIcon(resource.type)}
+                  </div>
+
+                  {/* Duration Badge (simulated) */}
+                  <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-1 rounded text-xs text-white font-semibold">
+                    {resource.type.toLowerCase().includes("playlist") ? "Playlist" : "Video"}
+                  </div>
+                </div>
+
+                {/* Content Area */}
+                <div className="p-4">
+                  {/* Channel Name */}
+                  {item.channel && (
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                        {item.channel.charAt(0)}
+                      </div>
+                      <span className="text-sm text-gray-600 font-medium">{item.channel}</span>
+                    </div>
+                  )}
+
+                  {/* Video Title */}
+                  <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-red-600 transition-colors">
                     {item.title}
                   </h3>
-                  {item.description && <p className="text-gray-600 text-sm">{item.description}</p>}
-                  <p className="text-indigo-600 mt-2 text-sm font-medium">Visit →</p>
+
+                  {/* Description/Stats */}
+                  {item.description && (
+                    <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                      {item.description}
+                    </p>
+                  )}
+
+                  {/* Watch Button */}
+                  <div className="flex items-center gap-2 text-red-600 text-sm font-semibold group-hover:gap-3 transition-all">
+                    <span>Watch Now</span>
+                    <ExternalLink className="w-4 h-4" />
+                  </div>
                 </div>
               </a>
             ))}
@@ -90,34 +145,5 @@ export const Resource: React.FC<ResourceProps> = ({ data }) => {
 };
 
 export const ResourceList = ({ data }: { data?: ResourceType[] }) => {
-  const display = data && data.length ? data : mockData;
-  return (
-    <div className="w-full space-y-12 py-6">
-      {display.map((resource) => (
-        <div key={resource.type}>
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">{resource.type}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {resource.items.map((item, index) => (
-              <a
-                key={index}
-                href={item.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="relative p-6 rounded-2xl overflow-hidden group cursor-pointer bg-white border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-0 group-hover:opacity-5 rounded-2xl transition-opacity"></div>
-                <div className="relative z-10">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">
-                    {item.title}
-                  </h3>
-                  {item.description && <p className="text-gray-600 text-sm">{item.description}</p>}
-                  <p className="text-indigo-600 mt-2 text-sm font-medium">Visit →</p>
-                </div>
-              </a>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+  return <Resource data={data} />;
 };

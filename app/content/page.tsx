@@ -4,7 +4,7 @@ import { Send, Sparkles, User, Bot, ExternalLink } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-import  {Resource} from "./resource";
+import { Resource } from "./resource";
 
 interface Message {
   role: "user" | "assistant";
@@ -17,6 +17,7 @@ interface ResourceItem {
   title: string;
   description?: string;
   link?: string;
+  channel?: string;
 }
 
 interface ResourceSection {
@@ -31,10 +32,10 @@ interface ResourceData {
 
 export const Home = () => {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [chatMessages, setChatMessages] = useState<Message[]>([]);
+  const [resourcesData, setResourcesData] = useState<ResourceSection[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [resourceMode, setResourceMode] = useState(false);
-  const [resourcesData, setResourcesData] = useState<ResourceSection[] | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -43,34 +44,7 @@ export const Home = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
-
-  // Parse AI response for resources when in resource mode
-  const parseResourceResponse = (content: string, isResourceMode: boolean): { text: string; resources: ResourceData | null } => {
-    if (!isResourceMode) {
-      return { text: content, resources: null };
-    }
-
-    try {
-      // Try to parse as JSON first
-      const parsed = JSON.parse(content);
-      
-      if (parsed.overview && parsed.resources) {
-        return {
-          text: parsed.overview,
-          resources: {
-            overview: parsed.overview,
-            resources: parsed.resources
-          }
-        };
-      }
-    } catch (e) {
-      // If JSON parsing fails, return as regular text
-      console.log("Not JSON format, displaying as text");
-    }
-
-    return { text: content, resources: null };
-  };
+  }, [chatMessages]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -78,9 +52,6 @@ export const Home = () => {
 
     const userMessage = input.trim();
     setInput("");
-
-    // Add user message
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsLoading(true);
 
     try {
@@ -89,50 +60,56 @@ export const Home = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           topic: userMessage,
-          resourceMode: resourceMode 
+          resourceMode: resourceMode,
         }),
       });
 
       const data = await res.json();
 
-      // Store resources if in resource mode
-      if (data.resources && Array.isArray(data.resources)) {
-        setResourcesData(data.resources);
-      }
-
       if (data.success) {
-        const { text, resources } = parseResourceResponse(data.aiResponse, data.isResourceMode);
-        
-        // Add AI response with parsed resources
-        setMessages((prev) => [
-          ...prev,
-          { 
-            role: "assistant", 
-            content: text,
-            resources: resources || undefined,
-            isResourceMode: data.isResourceMode
-          },
-        ]);
+        if (resourceMode) {
+          // RESOURCES MODE: Only update resources, don't add to chat
+          if (data.resources && Array.isArray(data.resources)) {
+            setResourcesData(data.resources);
+          }
+        } else {
+          // CHAT MODE: Add to chat messages
+          setChatMessages((prev) => [
+            ...prev,
+            { role: "user", content: userMessage },
+            {
+              role: "assistant",
+              content: data.aiResponse,
+              isResourceMode: false,
+            },
+          ]);
+        }
       } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: "Sorry, something went wrong. Please try again.",
-          },
-        ]);
+        if (!resourceMode) {
+          setChatMessages((prev) => [
+            ...prev,
+            { role: "user", content: userMessage },
+            {
+              role: "assistant",
+              content: "Sorry, something went wrong. Please try again.",
+            },
+          ]);
+        }
       }
     } catch (e) {
       console.error("Error:", e);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "Failed to get response. Please try again.",
-        },
-      ]);
+      if (!resourceMode) {
+        setChatMessages((prev) => [
+          ...prev,
+          { role: "user", content: userMessage },
+          {
+            role: "assistant",
+            content: "Failed to get response. Please try again.",
+          },
+        ]);
+      }
     }
 
     setIsLoading(false);
@@ -143,98 +120,66 @@ export const Home = () => {
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto px-4 py-8">
-          {messages.length === 0 && !resourceMode ? (
-            // Empty State - Chat Mode
-            <div className="flex flex-col items-center justify-center h-full text-center px-4 py-20">
-              <div className="mb-8">
-                <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl flex items-center justify-center mb-6 mx-auto shadow-lg">
-                  <Sparkles className="w-10 h-10 text-white" />
-                </div>
-                <h2 className="text-4xl font-bold text-gray-900 mb-3">
-                  What do you want to learn?
-                </h2>
-                <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
-                  Ask me anything and I'll provide comprehensive, well-structured explanations with examples and real-world applications.
-                </p>
-              </div>
-
-              {/* Example Prompts */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl w-full mt-10">
-                {[
-                  "What is machine learning?",
-                  "Explain React hooks",
-                  "Teach me Python basics",
-                  "How does blockchain work?",
-                ].map((prompt) => (
-                  <button
-                    key={prompt}
-                    onClick={() => setInput(prompt)}
-                    className="p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all text-left text-sm font-medium text-gray-700 cursor-pointer"
-                  >
-                    <span className="text-blue-600">💬</span> {prompt}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : resourceMode ? (
-            // Resource Mode - Show Resource Cards (persist even with messages)
-            <div className="w-full px-4">
-              {resourcesData && resourcesData.length > 0 ? (
-                <div className="space-y-8">
-                  <Resource data={resourcesData || undefined} />
-
-                  {messages.length > 0 && (
-                    <div className="mt-12 pt-8 border-t border-gray-300">
-                      <h3 className="text-lg font-semibold text-gray-700 mb-4">Your Search History</h3>
-                      <div className="space-y-4">
-                        {messages.map((msg, idx) => (
-                          <div key={idx} className="p-4 bg-white rounded-lg border border-gray-200">
-                            <p className="text-sm text-gray-600"><strong>You:</strong> {msg.content}</p>
-                          </div>
-                        ))}
-                      </div>
+          {/* CHAT MODE */}
+          {!resourceMode && (
+            <>
+              {chatMessages.length === 0 ? (
+                // Empty State - Chat Mode
+                <div className="flex flex-col items-center justify-center h-full text-center px-4 py-20">
+                  <div className="mb-8">
+                    <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl flex items-center justify-center mb-6 mx-auto shadow-lg">
+                      <Sparkles className="w-10 h-10 text-white" />
                     </div>
-                  )}
+                    <h2 className="text-4xl font-bold text-gray-900 mb-3">
+                      What do you want to learn?
+                    </h2>
+                    <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+                      Ask me anything and I'll provide comprehensive, well-structured explanations with examples and real-world applications.
+                    </p>
+                  </div>
+
+                  {/* Example Prompts */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl w-full mt-10">
+                    {[
+                      "What is machine learning?",
+                      "Explain React hooks",
+                      "Teach me Python basics",
+                      "How does blockchain work?",
+                    ].map((prompt) => (
+                      <button
+                        key={prompt}
+                        onClick={() => setInput(prompt)}
+                        className="p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all text-left text-sm font-medium text-gray-700 cursor-pointer"
+                      >
+                        <span className="text-blue-600">💬</span> {prompt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center px-4 py-20">
-                  <p className="text-gray-500 text-lg">Ask me about any topic to get resources</p>
-                  <p className="text-gray-400 text-sm mt-2">e.g., "resources to learn Python" or "C++ courses"</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            // Messages
-            <div className="space-y-8 pb-4">
-              {messages.map((message, index) => (
-                <div key={index}>
-                  {/* Message Bubble */}
-                  <div
-                    className={`flex gap-4 ${
-                      message.role === "user" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    {message.role === "assistant" && (
-                      <div className="flex-shrink-0 w-9 h-9 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-md">
-                        <Bot className="w-5 h-5 text-white" />
-                      </div>
-                    )}
-
+                // Chat Messages
+                <div className="space-y-8 pb-4">
+                  {chatMessages.map((message, index) => (
                     <div
-                      className={`max-w-3xl ${
-                        message.role === "user"
-                          ? "bg-blue-600 text-white rounded-2xl rounded-tr-sm px-5 py-3 shadow-md"
-                          : "bg-white border border-gray-300 rounded-2xl rounded-tl-sm px-6 py-4 shadow-md"
+                      key={index}
+                      className={`flex gap-4 ${
+                        message.role === "user" ? "justify-end" : "justify-start"
                       }`}
                     >
-                      {message.role === "assistant" ? (
-                        message.isResourceMode && message.resources ? (
-                          // Resource mode: Show overview text
-                          <div className="text-gray-700 leading-relaxed">
-                            <p className="text-base font-medium">{message.content}</p>
-                          </div>
-                        ) : (
-                          // Chat mode: Show markdown formatted response
+                      {message.role === "assistant" && (
+                        <div className="flex-shrink-0 w-9 h-9 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-md">
+                          <Bot className="w-5 h-5 text-white" />
+                        </div>
+                      )}
+
+                      <div
+                        className={`max-w-3xl ${
+                          message.role === "user"
+                            ? "bg-blue-600 text-white rounded-2xl rounded-tr-sm px-5 py-3 shadow-md"
+                            : "bg-white border border-gray-300 rounded-2xl rounded-tl-sm px-6 py-4 shadow-md"
+                        }`}
+                      >
+                        {message.role === "assistant" ? (
                           <div className="prose prose-sm max-w-none text-gray-900 
                             prose-headings:text-gray-900 prose-headings:font-bold prose-headings:mt-5 prose-headings:mb-3 
                             prose-h2:text-lg prose-h3:text-base 
@@ -286,94 +231,104 @@ export const Home = () => {
                               {message.content}
                             </ReactMarkdown>
                           </div>
-                        )
-                      ) : (
-                        <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
-                          {message.content}
+                        ) : (
+                          <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                            {message.content}
+                          </div>
+                        )}
+                      </div>
+
+                      {message.role === "user" && (
+                        <div className="flex-shrink-0 w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center shadow-md">
+                          <User className="w-5 h-5 text-white" />
                         </div>
                       )}
                     </div>
+                  ))}
 
-                    {message.role === "user" && (
-                      <div className="flex-shrink-0 w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center shadow-md">
-                        <User className="w-5 h-5 text-white" />
+                  {/* Loading Indicator */}
+                  {isLoading && (
+                    <div className="flex gap-4 justify-start">
+                      <div className="flex-shrink-0 w-9 h-9 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-md">
+                        <Bot className="w-5 h-5 text-white" />
                       </div>
-                    )}
-                  </div>
-
-                  {/* Resource Cards - Only show if resources exist */}
-                  {message.resources && message.resources.resources && message.resources.resources.length > 0 && (
-                    <div className="mt-6 ml-14 space-y-8">
-                      {message.resources.resources.map((section, sectionIndex) => (
-                        <div key={sectionIndex}>
-                          <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <span className="text-2xl">
-                              {section.type.toLowerCase().includes('book') ? '📚' : 
-                               section.type.toLowerCase().includes('course') ? '🎓' : 
-                               section.type.toLowerCase().includes('article') || section.type.toLowerCase().includes('tutorial') ? '📝' : 
-                               section.type.toLowerCase().includes('youtube') || section.type.toLowerCase().includes('video') ? '🎥' : 
-                               section.type.toLowerCase().includes('roadmap') ? '🗺️' : 
-                               section.type.toLowerCase().includes('tool') || section.type.toLowerCase().includes('platform') ? '🛠️' : '💡'}
-                            </span>
-                            {section.type}
-                          </h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                            {section.items.map((item, itemIndex) => (
-                              <a
-                                key={itemIndex}
-                                href={item.link || "#"}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="relative p-5 rounded-xl overflow-hidden group cursor-pointer 
-                                           bg-white border border-gray-200 shadow-sm hover:shadow-lg 
-                                           transition-all duration-300 transform hover:-translate-y-1"
-                              >
-                                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-0 group-hover:opacity-5 rounded-xl transition-opacity"></div>
-                                <div className="relative z-10">
-                                  <h4 className="text-base font-semibold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2">
-                                    {item.title}
-                                  </h4>
-                                  {item.description && (
-                                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">{item.description}</p>
-                                  )}
-                                  <div className="flex items-center text-indigo-600 text-sm font-medium">
-                                    <span>Visit</span>
-                                    <ExternalLink className="w-3.5 h-3.5 ml-1" />
-                                  </div>
-                                </div>
-                              </a>
-                            ))}
-                          </div>
+                      <div className="bg-white border border-gray-300 rounded-2xl rounded-tl-sm px-6 py-4 shadow-md">
+                        <div className="flex gap-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
+                          <div
+                            className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+                            style={{ animationDelay: "0.1s" }}
+                          />
+                          <div
+                            className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+                            style={{ animationDelay: "0.2s" }}
+                          />
                         </div>
-                      ))}
+                      </div>
                     </div>
                   )}
-                </div>
-              ))}
 
-              {/* Loading Indicator */}
-              {isLoading && (
-                <div className="flex gap-4 justify-start">
-                  <div className="flex-shrink-0 w-9 h-9 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-md">
-                    <Bot className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="bg-white border border-gray-300 rounded-2xl rounded-tl-sm px-6 py-4 shadow-md">
-                    <div className="flex gap-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
-                      <div
-                        className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
-                        style={{ animationDelay: "0.1s" }}
-                      />
-                      <div
-                        className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
-                        style={{ animationDelay: "0.2s" }}
-                      />
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </>
+          )}
+
+          {/* RESOURCES MODE */}
+          {resourceMode && (
+            <div className="w-full px-4">
+              {resourcesData && resourcesData.length > 0 ? (
+                <Resource data={resourcesData} />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center px-4 py-20">
+                  <div className="mb-8">
+                    <div className="w-20 h-20 bg-gradient-to-r from-red-600 to-purple-600 rounded-3xl flex items-center justify-center mb-6 mx-auto shadow-lg">
+                      <Sparkles className="w-10 h-10 text-white" />
                     </div>
+                    <h2 className="text-4xl font-bold text-gray-900 mb-3">
+                      Find Learning Resources
+                    </h2>
+                    <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+                      Search for any topic and get curated YouTube videos and playlists
+                    </p>
+                  </div>
+
+                  {/* Example Prompts */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl w-full mt-10">
+                    {[
+                      "Python programming",
+                      "JavaScript tutorial",
+                      "Machine Learning",
+                      "React development",
+                    ].map((prompt) => (
+                      <button
+                        key={prompt}
+                        onClick={() => setInput(prompt)}
+                        className="p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-red-400 hover:bg-red-50 hover:shadow-md transition-all text-left text-sm font-medium text-gray-700 cursor-pointer"
+                      >
+                        <span className="text-red-600">🎥</span> {prompt}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
 
-              <div ref={messagesEndRef} />
+              {/* Loading Indicator for Resources */}
+              {isLoading && (
+                <div className="flex justify-center items-center py-20">
+                  <div className="flex gap-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full animate-bounce" />
+                    <div
+                      className="w-3 h-3 bg-red-500 rounded-full animate-bounce"
+                      style={{ animationDelay: "0.1s" }}
+                    />
+                    <div
+                      className="w-3 h-3 bg-red-500 rounded-full animate-bounce"
+                      style={{ animationDelay: "0.2s" }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -382,7 +337,7 @@ export const Home = () => {
       {/* Input Box - Fixed at Bottom */}
       <div className="sticky bottom-0 bg-gradient-to-t from-white via-white to-white border-t border-gray-200 px-4 py-4 shadow-2xl">
         <div className="max-w-4xl mx-auto">
-          {/* Resource Mode Toggle - Enhanced UI */}
+          {/* Resource Mode Toggle */}
           <div className="flex items-center justify-center gap-4 mb-4">
             <div className="flex items-center gap-3 bg-white rounded-full px-4 py-2 shadow-md border border-gray-200">
               <span className={`text-sm font-semibold transition-colors ${!resourceMode ? 'text-blue-600' : 'text-gray-400'}`}>
@@ -391,7 +346,7 @@ export const Home = () => {
               <button
                 onClick={() => setResourceMode(!resourceMode)}
                 className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  resourceMode ? 'bg-gradient-to-r from-blue-600 to-purple-600' : 'bg-gray-300'
+                  resourceMode ? 'bg-gradient-to-r from-red-600 to-purple-600' : 'bg-gray-300'
                 }`}
               >
                 <span
@@ -400,8 +355,8 @@ export const Home = () => {
                   }`}
                 />
               </button>
-              <span className={`text-sm font-semibold transition-colors ${resourceMode ? 'text-blue-600' : 'text-gray-400'}`}>
-                📚 Resources
+              <span className={`text-sm font-semibold transition-colors ${resourceMode ? 'text-red-600' : 'text-gray-400'}`}>
+                🎥 Resources
               </span>
             </div>
           </div>
@@ -417,7 +372,11 @@ export const Home = () => {
                     handleSubmit();
                   }
                 }}
-                placeholder="Ask me anything... (Shift+Enter for new line)"
+                placeholder={
+                  resourceMode
+                    ? "Search for learning resources (e.g., 'Python tutorial')..."
+                    : "Ask me anything... (Shift+Enter for new line)"
+                }
                 rows={1}
                 className="w-full resize-none rounded-xl border-2 border-gray-300 px-5 py-3 pr-14 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900 placeholder-gray-400 font-medium shadow-sm hover:border-gray-400"
                 style={{ maxHeight: "200px" }}
@@ -425,7 +384,11 @@ export const Home = () => {
               <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
-                className="absolute right-2 bottom-2 p-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
+                className={`absolute right-2 bottom-2 p-2.5 ${
+                  resourceMode
+                    ? 'bg-gradient-to-r from-red-600 to-red-700'
+                    : 'bg-gradient-to-r from-blue-600 to-blue-700'
+                } text-white rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95`}
                 title="Send message"
               >
                 <Send className="w-5 h-5" />
