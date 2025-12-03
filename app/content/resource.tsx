@@ -1,13 +1,20 @@
-//app/content/resource.tsx frontend to showcase resource
 "use client";
 import React from "react";
-import { Play, List, ExternalLink } from "lucide-react";
+import {
+  Play,
+  List,
+  BookOpen,
+  Github,
+  MessageSquare,
+  ExternalLink,
+} from "lucide-react";
 
 export interface ResourceItem {
   title: string;
   description?: string;
   link?: string;
-  channel?: string;
+  channel?: string; // For YouTube or GitHub owner or author
+  stars?: number; // For GitHub repos
 }
 
 export interface ResourceType {
@@ -15,56 +22,33 @@ export interface ResourceType {
   items: ResourceItem[];
 }
 
-const mockData: ResourceType[] = [
-  {
-    type: "Top Videos",
-    items: [
-      { 
-        title: "Python Tutorial for Beginners", 
-        description: "Complete 6-hour course covering Python fundamentals",
-        channel: "Programming with Mosh",
-        link: "#" 
-      },
-      { 
-        title: "Learn Python - Full Course", 
-        description: "4.5M views • Comprehensive beginner guide",
-        channel: "freeCodeCamp",
-        link: "#" 
-      },
-    ],
-  },
-  {
-    type: "Best Playlists",
-    items: [
-      { 
-        title: "Python for Everybody", 
-        description: "100+ videos • Complete beginner to advanced series",
-        channel: "Corey Schafer",
-        link: "#" 
-      },
-    ],
-  },
-];
-
 export type ResourceProps = {
   data?: ResourceType[];
 };
 
 export const Resource: React.FC<ResourceProps> = ({ data }) => {
-  const display = data && data.length ? data : mockData;
+  const display = data && data.length ? data : [];
 
+  // Determine icon for resource type
   const getIcon = (type: string) => {
-    if (type.toLowerCase().includes("playlist")) {
-      return <List className="w-5 h-5" />;
-    }
-    return <Play className="w-5 h-5" />;
+    const lower = type.toLowerCase();
+    if (lower.includes("playlist")) return <List className="w-5 h-5" />;
+    if (lower.includes("book")) return <BookOpen className="w-5 h-5" />;
+    if (lower.includes("github")) return <Github className="w-5 h-5" />;
+    if (lower.includes("stackoverflow") || lower.includes("qa"))
+      return <MessageSquare className="w-5 h-5" />;
+    return <Play className="w-5 h-5" />; // default video
   };
 
+  // Badge color by type
   const getBadgeColor = (type: string) => {
-    if (type.toLowerCase().includes("playlist")) {
-      return "bg-purple-600";
-    }
-    return "bg-red-600";
+    const lower = type.toLowerCase();
+    if (lower.includes("playlist")) return "bg-purple-600";
+    if (lower.includes("book")) return "bg-green-600";
+    if (lower.includes("github")) return "bg-gray-800";
+    if (lower.includes("stackoverflow") || lower.includes("qa"))
+      return "bg-yellow-600";
+    return "bg-red-600"; // default video
   };
 
   return (
@@ -76,10 +60,12 @@ export const Resource: React.FC<ResourceProps> = ({ data }) => {
             <div className={`${getBadgeColor(resource.type)} p-2 rounded-lg`}>
               {getIcon(resource.type)}
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">{resource.type}</h2>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {resource.type}
+            </h2>
           </div>
 
-          {/* YouTube-Style Cards Grid */}
+          {/* Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {resource.items.map((item, index) => (
               <a
@@ -89,51 +75,55 @@ export const Resource: React.FC<ResourceProps> = ({ data }) => {
                 rel="noopener noreferrer"
                 className="group block bg-white rounded-xl overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-100"
               >
-                {/* Thumbnail Area */}
+                {/* Thumbnail / Icon Area */}
                 <div className="relative bg-gradient-to-br from-gray-900 to-gray-700 aspect-video flex items-center justify-center overflow-hidden">
-                  {/* Gradient Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                  
-                  {/* Play Icon */}
                   <div className="relative z-10 bg-red-600 rounded-full p-4 group-hover:scale-110 transition-transform duration-300 shadow-xl">
                     {getIcon(resource.type)}
                   </div>
-
-                  {/* Duration Badge (simulated) */}
-                  <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-1 rounded text-xs text-white font-semibold">
-                    {resource.type.toLowerCase().includes("playlist") ? "Playlist" : "Video"}
-                  </div>
+                  {/* Removed specific video/playlist badge from here, as it's handled by the resource type */}
                 </div>
 
-                {/* Content Area */}
+                {/* Content */}
                 <div className="p-4">
-                  {/* Channel Name */}
                   {item.channel && (
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
                         {item.channel.charAt(0)}
                       </div>
-                      <span className="text-sm text-gray-600 font-medium">{item.channel}</span>
+                      <span className="text-sm text-gray-600 font-medium">
+                        {item.channel}
+                      </span>
                     </div>
                   )}
 
-                  {/* Video Title */}
                   <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-red-600 transition-colors">
                     {item.title}
                   </h3>
 
-                  {/* Description/Stats */}
                   {item.description && (
-                    <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                    <p className="text-sm text-gray-600 line-clamp-3 mb-3">
                       {item.description}
                     </p>
                   )}
 
-                  {/* Watch Button */}
-                  <div className="flex items-center gap-2 text-red-600 text-sm font-semibold group-hover:gap-3 transition-all">
-                    <span>Watch Now</span>
-                    <ExternalLink className="w-4 h-4" />
-                  </div>
+                  {item.link && (
+                    <div className="flex items-center gap-2 text-red-600 text-sm font-semibold group-hover:gap-3 transition-all">
+                      <span>
+                        {resource.type.toLowerCase().includes("book")
+                          ? "Read/Buy"
+                          : resource.type.toLowerCase().includes("github")
+                          ? "View Repository" // This should appear for GitHub repos
+                          : resource.type
+                              .toLowerCase()
+                              .includes("stackoverflow") ||
+                            resource.type.toLowerCase().includes("qa")
+                          ? "View Thread"
+                          : "Open"}
+                      </span>
+                      <ExternalLink className="w-4 h-4" />
+                    </div>
+                  )}
                 </div>
               </a>
             ))}
