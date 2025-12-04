@@ -2,6 +2,78 @@ import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
 const GOOGLE_BOOKS_API_KEY = "AIzaSyCo71Ne_iGV1uFr_afcKb2F5nTp8ZwAoi0";
+const YOUTUBE_API_KEY = "AIzaSyCo71Ne_iGV1uFr_afcKb2F5nTp8ZwAoi0";
+
+// Fetch REAL YouTube videos using YouTube Data API
+async function fetchYouTubeVideos(topic: string) {
+  try {
+    console.log("🎥 Fetching real YouTube videos...");
+    const searchQuery = encodeURIComponent(`${topic} tutorial beginner`);
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&order=viewCount&maxResults=3&key=${YOUTUBE_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (!data.items || data.items.length === 0) {
+      console.log("⚠️ No YouTube videos found");
+      return [];
+    }
+
+    // Get video statistics (views, likes)
+    const videoIds = data.items.map((item: any) => item.id.videoId).join(',');
+    const statsUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics,contentDetails&id=${videoIds}&key=${YOUTUBE_API_KEY}`;
+    const statsResponse = await fetch(statsUrl);
+    const statsData = await statsResponse.json();
+
+    const videos = data.items.map((item: any, index: number) => {
+      const stats = statsData.items[index]?.statistics;
+      const viewCount = stats?.viewCount ? parseInt(stats.viewCount).toLocaleString() : 'N/A';
+      
+      return {
+        title: item.snippet.title,
+        description: `${item.snippet.description.substring(0, 100)}... • ${viewCount} views`,
+        channel: item.snippet.channelTitle,
+        link: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+      };
+    });
+
+    console.log("✅ YouTube videos:", videos.length);
+    return videos;
+  } catch (error) {
+    console.error("❌ YouTube videos error:", error);
+    return [];
+  }
+}
+
+// Fetch REAL YouTube playlists using YouTube Data API
+async function fetchYouTubePlaylists(topic: string) {
+  try {
+    console.log("📺 Fetching real YouTube playlists...");
+    const searchQuery = encodeURIComponent(`${topic} course complete`);
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=playlist&maxResults=2&key=${YOUTUBE_API_KEY}`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (!data.items || data.items.length === 0) {
+      console.log("⚠️ No YouTube playlists found");
+      return [];
+    }
+
+    const playlists = data.items.map((item: any) => ({
+      title: item.snippet.title,
+      description: item.snippet.description.substring(0, 150) + "...",
+      channel: item.snippet.channelTitle,
+      link: `https://www.youtube.com/playlist?list=${item.id.playlistId}`,
+    }));
+
+    console.log("✅ YouTube playlists:", playlists.length);
+    return playlists;
+  } catch (error) {
+    console.error("❌ YouTube playlists error:", error);
+    return [];
+  }
+}
 
 // Fetch books from Google Books API
 async function fetchBooksFromGoogle(topic: string) {
@@ -209,70 +281,39 @@ export async function POST(req: Request) {
     if (resourceMode) {
       console.log("📺 Generating comprehensive resources...");
 
-      // 1. YouTube from AI (improved prompt)
-      const resourcePrompt = `You are a YouTube expert curator. For "${topic}", recommend:
-
-1. **Top 3 Videos** - REAL popular beginner tutorials (include view counts)
-2. **Top 2 Playlists** - Complete course series
-
-JSON format:
-{
-  "overview": "One sentence about learning ${topic} on YouTube",
-  "resources": [
-    {
-      "type": "Top Videos",
-      "items": [
-        {
-          "title": "Exact video title",
-          "description": "Why it's great (mention views/likes)",
-          "channel": "Channel name",
-          "link": "https://youtube.com/watch?v=..."
-        }
-      ]
-    },
-    {
-      "type": "Best Playlists",
-      "items": [
-        {
-          "title": "Playlist name",
-          "description": "What it covers + video count",
-          "channel": "Channel name",
-          "link": "https://youtube.com/playlist?list=..."
-        }
-      ]
-    }
-  ]
-}
-
-Suggest REAL popular content. Return ONLY JSON.`;
-
-      const ytCompletion = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: "YouTube expert. Return only valid JSON." },
-          { role: "user", content: resourcePrompt }
-        ],
-        max_tokens: 1500,
-        temperature: 0.4,
-      });
-
-      let aiResponse = ytCompletion.choices[0]?.message?.content || "{}";
-      aiResponse = aiResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-      // 2. Fetch all resources in parallel
-      const [books, githubRepos, stackOverflow, officialDocs] = await Promise.all([
+      // 1. Fetch all resources in parallel (including REAL YouTube content)
+      const [youtubeVideos, youtubePlaylists, books, githubRepos, stackOverflow, officialDocs] = await Promise.all([
+        fetchYouTubeVideos(topic),
+        fetchYouTubePlaylists(topic),
         fetchBooksFromGoogle(topic),
         fetchGitHubRepos(topic),
         getStackOverflowQuestions(topic, groq),
         getOfficialDocs(topic, groq),
       ]);
 
-      try {
-        const parsedResources = JSON.parse(aiResponse);
+      // 2. Build resources array with REAL YouTube content
+      const resources: any[] = [];
 
-        // Add all resources
+      // Add YouTube Videos
+      if (youtubeVideos.length > 0) {
+        resources.push({
+          type: "Top Videos",
+          items: youtubeVideos
+        });
+      }
+
+      // Add YouTube Playlists
+      if (youtubePlaylists.length > 0) {
+        resources.push({
+          type: "Best Playlists",
+          items: youtubePlaylists
+        });
+      }
+
+      try {
+        // Add all other resources
         if (books.length > 0) {
-          parsedResources.resources.push({
+          resources.push({
             type: "Top Books",
             items: books.map((book: any) => ({
               title: book.title,
@@ -284,7 +325,7 @@ Suggest REAL popular content. Return ONLY JSON.`;
         }
 
         if (githubRepos.length > 0) {
-          parsedResources.resources.push({
+          resources.push({
             type: "GitHub Learning Repos",
             items: githubRepos.map((repo: any) => ({
               title: repo.title,
@@ -296,7 +337,7 @@ Suggest REAL popular content. Return ONLY JSON.`;
         }
 
         if (officialDocs.length > 0) {
-          parsedResources.resources.push({
+          resources.push({
             type: "Official Documentation",
             items: officialDocs.map((doc: any) => ({
               title: doc.title,
@@ -308,7 +349,7 @@ Suggest REAL popular content. Return ONLY JSON.`;
         }
 
         if (stackOverflow.length > 0) {
-          parsedResources.resources.push({
+          resources.push({
             type: "Common Questions",
             items: stackOverflow.map((qa: any) => ({
               title: qa.title,
@@ -319,30 +360,23 @@ Suggest REAL popular content. Return ONLY JSON.`;
           });
         }
 
-        console.log("✅ Total sections:", parsedResources.resources.length);
+        console.log("✅ Total sections:", resources.length);
 
         return NextResponse.json({
           success: true,
           topic,
           isResourceMode: true,
-          aiResponse: parsedResources.overview || `Resources for ${topic}`,
-          resources: parsedResources.resources || [],
+          aiResponse: `Comprehensive learning resources for ${topic}`,
+          resources: resources,
         });
-      } catch (parseError) {
-        console.error("❌ Parse error:", parseError);
+      } catch (error) {
+        console.error("❌ Error building resources:", error);
         
-        // Robust fallback
-        const fallbackResources: any[] = [
-          {
-            type: "YouTube Search",
-            items: [{
-              title: `${topic} tutorials`,
-              description: "Find video tutorials",
-              channel: "Various",
-              link: `https://www.youtube.com/results?search_query=${encodeURIComponent(topic + ' tutorial')}`
-            }]
-          }
-        ];
+        // Robust fallback with real YouTube content
+        const fallbackResources: any[] = [];
+
+        if (youtubeVideos.length > 0) fallbackResources.push({ type: "Top Videos", items: youtubeVideos });
+        if (youtubePlaylists.length > 0) fallbackResources.push({ type: "Best Playlists", items: youtubePlaylists });
 
         if (books.length > 0) fallbackResources.push({ type: "Top Books", items: books.map((b: any) => ({ title: b.title, description: b.description, channel: b.authors, link: b.link })) });
         if (githubRepos.length > 0) fallbackResources.push({ type: "GitHub Repos", items: githubRepos.map((r: any) => ({ title: r.title, description: r.description, channel: r.channel, link: r.link })) });
