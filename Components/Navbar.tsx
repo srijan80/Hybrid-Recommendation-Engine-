@@ -1,17 +1,20 @@
 'use client';
 import { Send, Sparkles, User, Bot } from "lucide-react";
 import Link from 'next/link';
+import { useRouter } from "next/navigation";
 import { SignedOut, SignedIn, UserButton } from '@clerk/nextjs';
 
 export default function Navbar() {
+  const router = useRouter();
   return (
     <nav className="bg-gray-200 shadow-sm py-4 px-6 flex items-center justify-between">
-      <div className="text-xl font-bold text-gray-800">
-        <Link href="/" className="hover:text-blue-600 flex  transition-colors">
-         <Sparkles className="w-6 h-6 text-blue-400" />
-          Hybrid Recommendation Engine
-        </Link>
-      </div>
+       <div
+      onClick={() => router.refresh()}
+      className="text-xl font-bold text-gray-800 cursor-pointer hover:text-blue-600 transition-colors flex items-center gap-2"
+    >
+      <Sparkles className="w-6 h-6 text-blue-400" />
+      Hybrid Recommendation Engine
+    </div>
 
       {/* Right Side: Auth Buttons */}
       <div className="flex items-center gap-4">
