@@ -1,19 +1,16 @@
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
-import { parseStringPromise } from 'xml2js'; // You'll need to install this: npm install xml2js @types/xml2js
 
-// Google Books API Key
 const GOOGLE_BOOKS_API_KEY = "AIzaSyCo71Ne_iGV1uFr_afcKb2F5nTp8ZwAoi0";
 
-// Function to fetch books from Google Books API
+// Fetch books from Google Books API
 async function fetchBooksFromGoogle(topic: string) {
   try {
-    const searchQuery = encodeURIComponent(`${topic} programming tutorial`);
+    // Smarter search query - prioritize learning books
+    const searchQuery = encodeURIComponent(`${topic} programming beginner tutorial learn`);
     const url = `https://www.googleapis.com/books/v1/volumes?q=${searchQuery}&maxResults=3&orderBy=relevance&key=${GOOGLE_BOOKS_API_KEY}`;
 
-    console.log("📚 Fetching books from Google Books API...");
-    console.log("🔑 API Key exists:", !!GOOGLE_BOOKS_API_KEY);
-
+    console.log("📚 Fetching books...");
     const response = await fetch(url);
     const data = await response.json();
 
@@ -26,210 +23,209 @@ async function fetchBooksFromGoogle(topic: string) {
       const volumeInfo = item.volumeInfo;
       return {
         title: volumeInfo.title || "Unknown Title",
-        description: volumeInfo.description
-          ? volumeInfo.description.substring(0, 150) + "..."
-          : "No description available",
+        description: volumeInfo.description 
+          ? volumeInfo.description.substring(0, 150) + "..." 
+          : "Comprehensive guide for learning",
         authors: volumeInfo.authors?.join(", ") || "Unknown Author",
         link: volumeInfo.infoLink || "#",
-        thumbnail: volumeInfo.imageLinks?.thumbnail || null,
         rating: volumeInfo.averageRating || null,
       };
     });
 
-    console.log("✅ Books fetched:", books.length);
+    console.log("✅ Books:", books.length);
     return books;
   } catch (error) {
-    console.error("❌ Error fetching books:", error);
+    console.error("❌ Books error:", error);
     return [];
   }
 }
 
-// Function to fetch top GitHub repositories with a focus on learning resources
+// Fetch LEARNING-focused GitHub repositories
 async function fetchGitHubRepos(topic: string) {
   try {
     console.log("🐙 Fetching GitHub repos...");
-    // Construct a more specific search query
-    // - `topic` in the name or description
-    // - Terms like 'tutorial', 'learn', 'course', 'examples', 'bootcamp', 'curriculum' often indicate educational repos
-    // - `sort=stars&order=desc` still sorts by stars within these relevant results
-    const searchTerms = `tutorial OR learn OR course OR examples OR bootcamp OR curriculum`;
-    // Use the topic itself as the primary search term
-    // Combine topic, learning terms, and optionally filter by common programming languages if applicable
-    // Using 'in:name,description' to search specifically in name and description fields for better relevance
-    const searchQuery = encodeURIComponent(`${topic} ${searchTerms} in:name,description`);
-    const url = `https://api.github.com/search/repositories?q=${searchQuery}&sort=stars&order=desc&per_page=3`;
     
-    console.log("🔍 GitHub API Query:", url); // Log the actual query being made
+    // MUCH BETTER SEARCH STRATEGY:
+    // 1. Search for awesome lists (curated resources)
+    // 2. Search for tutorials/courses
+    // 3. Prioritize repos with "awesome", "tutorial", "course", "learn" in name
+    const queries = [
+      `awesome-${topic} in:name`,
+      `${topic} tutorial in:name,description`,
+      `learn ${topic} in:name,description`,
+      `${topic} course in:name,description`
+    ];
 
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        // Optional: Add a User-Agent header as a best practice for public APIs
-        // 'User-Agent': 'Your-App-Name' 
-      }
-    });
+    let allRepos: any[] = [];
 
-    if (!response.ok) {
-      console.error(`GitHub API responded with status ${response.status}`);
-      const errorText = await response.text(); // Get error details
-      console.error("Error details:", errorText);
-      throw new Error(`GitHub API error: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    
-    if (!data.items || data.items.length === 0) {
-      console.log("⚠️ No GitHub repos found with the specific query");
-      // Fallback: try a slightly broader query if the specific one yields no results
-      const fallbackQuery = encodeURIComponent(`${topic} in:name,description`);
-      const fallbackUrl = `https://api.github.com/search/repositories?q=${fallbackQuery}&sort=stars&order=desc&per_page=3`;
-      console.log("🔍 Trying fallback GitHub API Query:", fallbackUrl);
+    // Try each query until we get good results
+    for (const query of queries) {
+      const searchQuery = encodeURIComponent(query);
+      const url = `https://api.github.com/search/repositories?q=${searchQuery}&sort=stars&order=desc&per_page=5`;
       
-      const fallbackResponse = await fetch(fallbackUrl, {
-        headers: { 'Accept': 'application/vnd.github.v3+json' }
-      });
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'Learning-Resource-App'
+          }
+        });
 
-      if (!fallbackResponse.ok) {
-         console.error(`Fallback GitHub API responded with status ${fallbackResponse.status}`);
-         const errorText = await fallbackResponse.text();
-         console.error("Fallback error details:", errorText);
-         return []; // Return empty array if fallback also fails
+        if (response.ok) {
+          const data = await response.json();
+          if (data.items && data.items.length > 0) {
+            allRepos.push(...data.items);
+          }
+        }
+      } catch (err) {
+        console.log(`Query failed: ${query}`);
       }
 
-      const fallbackData = await fallbackResponse.json();
-      if (!fallbackData.items || fallbackData.items.length === 0) {
-        console.log("⚠️ No GitHub repos found even with the fallback query");
-        return [];
-      }
-
-      const fallbackRepos = fallbackData.items.map((item: any) => ({
-        title: item.name,
-        description: item.description || "No description available",
-        channel: item.owner?.login || "Unknown Owner",
-        link: item.html_url || "#",
-        stars: item.stargazers_count,
-      }));
-
-      console.log("✅ Fallback GitHub repos fetched:", fallbackRepos.length);
-      return fallbackRepos;
+      // If we have enough repos, break
+      if (allRepos.length >= 3) break;
     }
 
-    const repos = data.items.map((item: any) => ({
+    // Remove duplicates and get top 3
+    const uniqueRepos = Array.from(new Map(allRepos.map(repo => [repo.id, repo])).values())
+      .slice(0, 3);
+
+    if (uniqueRepos.length === 0) {
+      console.log("⚠️ No GitHub repos found");
+      return [];
+    }
+
+    const repos = uniqueRepos.map((item: any) => ({
       title: item.name,
-      description: item.description || "No description available",
-      channel: item.owner?.login || "Unknown Owner",
+      description: item.description || "Popular learning repository",
+      channel: item.owner?.login || "Unknown",
       link: item.html_url || "#",
       stars: item.stargazers_count,
     }));
 
-    console.log("✅ GitHub repos fetched with specific query:", repos.length);
+    console.log("✅ GitHub repos:", repos.length);
     return repos;
   } catch (error) {
-    console.error("❌ Error fetching GitHub repos:", error);
+    console.error("❌ GitHub error:", error);
     return [];
   }
 }
 
-// Function to fetch research papers from arXiv API
-async function fetchArxivPapers(topic: string) {
+// AI-curated StackOverflow questions
+async function getStackOverflowQuestions(topic: string, groq: any) {
   try {
-    console.log("🔬 Fetching research papers from arXiv...");
-    // Encode the topic for the search query
-    // Use 'all:' to search in title, abstract, and other fields
-    // Add quotes around the topic for an exact phrase search if needed, or use boolean operators
-    // Example: all:"machine learning" OR all:"deep learning" OR all:machine-learning
-    // For now, using the topic directly with 'all:' which is broad but standard
-    const searchQuery = encodeURIComponent(`all:${topic}`);
-    // Example URL: http://export.arxiv.org/api/query?search_query=all:machine+learning&start=0&max_results=5
-    const url = `http://export.arxiv.org/api/query?search_query=${searchQuery}&start=0&max_results=3`; // Changed max_results to 3
+    console.log("💬 Getting StackOverflow Q&A...");
+    
+    const prompt = `You are a StackOverflow expert. For "${topic}", suggest 3 REAL popular StackOverflow questions that beginners commonly search for.
 
-    console.log("🔍 arXiv API Query:", url);
-
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`arXiv API error: ${response.status}`);
+Format as JSON:
+{
+  "questions": [
+    {
+      "title": "Actual question title from StackOverflow",
+      "description": "Why this is important (1 sentence, under 100 chars)",
+      "link": "https://stackoverflow.com/questions/[actual-question-id]/[question-slug]"
     }
-    const xmlData = await response.text();
+  ]
+}
 
-    // Parse the XML response from arXiv
-    const parsedData = await parseStringPromise(xmlData, { explicitArray: false, ignoreAttrs: false });
+IMPORTANT: Use REAL StackOverflow question URLs that exist. Return ONLY valid JSON.`;
 
-    const entries = parsedData.feed.entry || [];
-    if (!entries || entries.length === 0) {
-      console.log("⚠️ No research papers found on arXiv for this topic");
-      return [];
-    }
-
-    // Extract relevant information from each entry
-    const papers = entries.map((entry: any) => {
-      // Authors can be an array or a single object
-      const authorsArray = Array.isArray(entry.author) ? entry.author : [entry.author];
-      const authorNames = authorsArray.map((author: any) => author.name).join(", ");
-
-      // Summary might be long, so we truncate it
-      const summary = entry.summary ? entry.summary.replace(/\s+/g, ' ').trim() : "No summary available";
-      const truncatedSummary = summary.length > 200 ? summary.substring(0, 200) + "..." : summary;
-
-      return {
-        title: entry.title,
-        description: truncatedSummary,
-        channel: authorNames, // Use authors as "channel"
-        link: entry.id || "#", // arXiv ID link
-        published: entry.published ? new Date(entry.published).toLocaleDateString() : "Unknown Date", // Optional: include publication date
-      };
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: "You are a StackOverflow expert. Return only valid JSON." },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 800,
+      temperature: 0.3,
     });
 
-    console.log("✅ Research papers fetched from arXiv:", papers.length);
-    return papers;
+    let response = completion.choices[0]?.message?.content || "{}";
+    response = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    const parsed = JSON.parse(response);
+    console.log("✅ StackOverflow Q&A:", parsed.questions?.length || 0);
+    return parsed.questions || [];
   } catch (error) {
-    console.error("❌ Error fetching research papers from arXiv:", error);
+    console.error("❌ StackOverflow error:", error);
     return [];
   }
 }
 
+// AI-curated documentation links
+async function getOfficialDocs(topic: string, groq: any) {
+  try {
+    console.log("📖 Getting official documentation...");
+    
+    const prompt = `For "${topic}", provide the 2 MOST IMPORTANT official documentation/reference sites.
+
+Format as JSON:
+{
+  "docs": [
+    {
+      "title": "Official [Name] Documentation",
+      "description": "What you'll find here (1 sentence)",
+      "link": "https://..."
+    }
+  ]
+}
+
+Return ONLY valid JSON with REAL URLs.`;
+
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: "You are a developer documentation expert. Return only valid JSON." },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 500,
+      temperature: 0.2,
+    });
+
+    let response = completion.choices[0]?.message?.content || "{}";
+    response = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    const parsed = JSON.parse(response);
+    console.log("✅ Official docs:", parsed.docs?.length || 0);
+    return parsed.docs || [];
+  } catch (error) {
+    console.error("❌ Docs error:", error);
+    return [];
+  }
+}
 
 export async function POST(req: Request) {
   try {
     const { topic, resourceMode } = await req.json();
-    console.log("🔥 Received from frontend:", { topic, resourceMode });
+    console.log("🔥 Request:", { topic, resourceMode });
 
     if (!topic || typeof topic !== "string") {
-      return NextResponse.json(
-        { error: "No valid topic provided" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No valid topic" }, { status: 400 });
     }
 
-    const groq = new Groq({
-      apiKey: process.env.GROQ_API_KEY,
-    });
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-    // RESOURCES MODE: YouTube + Books + GitHub + Research Papers
+    // RESOURCES MODE
     if (resourceMode) {
-      console.log("📺 Resources Mode: Generating comprehensive resources...");
-      console.log("📚 Fetching books from Google Books API...");
-      console.log("🐙 Fetching GitHub repos...");
-      console.log("🔬 Fetching research papers from arXiv...");
+      console.log("📺 Generating comprehensive resources...");
 
-      // 1. Get YouTube recommendations from AI
-      const resourcePrompt = `You are a YouTube learning resources expert. The user wants to learn: "${topic}"
+      // 1. YouTube from AI (improved prompt)
+      const resourcePrompt = `You are a YouTube expert curator. For "${topic}", recommend:
 
-Recommend the BEST YouTube resources based on popularity, likes, and teaching quality:
+1. **Top 3 Videos** - REAL popular beginner tutorials (include view counts)
+2. **Top 2 Playlists** - Complete course series
 
-1. **Top 3 Individual Videos** - Single comprehensive tutorial videos (highly liked, beginner-friendly)
-2. **Top 2 Playlists** - Complete curated playlists (highly rated series)
-
-Format your response as valid JSON with this EXACT schema:
+JSON format:
 {
-  "overview": "Brief intro about learning ${topic}",
+  "overview": "One sentence about learning ${topic} on YouTube",
   "resources": [
     {
       "type": "Top Videos",
       "items": [
         {
-          "title": "Video Title",
-          "description": "What makes this video great (mention view count/likes if known)",
-          "channel": "Channel Name",
+          "title": "Exact video title",
+          "description": "Why it's great (mention views/likes)",
+          "channel": "Channel name",
           "link": "https://youtube.com/watch?v=..."
         }
       ]
@@ -238,9 +234,9 @@ Format your response as valid JSON with this EXACT schema:
       "type": "Best Playlists",
       "items": [
         {
-          "title": "Playlist Name",
-          "description": "Why this playlist is comprehensive",
-          "channel": "Channel Name",
+          "title": "Playlist name",
+          "description": "What it covers + video count",
+          "channel": "Channel name",
           "link": "https://youtube.com/playlist?list=..."
         }
       ]
@@ -248,223 +244,135 @@ Format your response as valid JSON with this EXACT schema:
   ]
 }
 
-IMPORTANT: 
-- Suggest REAL, popular YouTube videos/playlists that exist
-- Include actual channel names
-- Prioritize content with high likes and positive reviews
-- Return ONLY valid JSON, no markdown, no extra text`;
+Suggest REAL popular content. Return ONLY JSON.`;
 
-      const chatCompletion = await groq.chat.completions.create({
+      const ytCompletion = await groq.chat.completions.create({
         model: "llama-3.3-70b-versatile",
         messages: [
-          {
-            role: "system",
-            content:
-              "You are a YouTube learning resources expert. You know the most popular, highly-liked educational videos and playlists. Return ONLY valid JSON with no markdown formatting.",
-          },
-          {
-            role: "user",
-            content: resourcePrompt,
-          },
+          { role: "system", content: "YouTube expert. Return only valid JSON." },
+          { role: "user", content: resourcePrompt }
         ],
         max_tokens: 1500,
         temperature: 0.4,
       });
 
-      let aiResponse = chatCompletion.choices[0]?.message?.content || "{}";
+      let aiResponse = ytCompletion.choices[0]?.message?.content || "{}";
+      aiResponse = aiResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
-      // Clean up any markdown formatting if present
-      aiResponse = aiResponse
-        .replace(/```json\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
-
-      // 2. Fetch books from Google Books API
-      const books = await fetchBooksFromGoogle(topic);
-      console.log("✅ Books fetched:", books.length);
-
-      // 3. Fetch GitHub repositories
-      const githubRepos = await fetchGitHubRepos(topic);
-      console.log("✅ GitHub repos fetched:", githubRepos.length);
-
-      // 4. Fetch research papers from arXiv
-      const arxivPapers = await fetchArxivPapers(topic);
-      console.log("✅ Research papers fetched:", arxivPapers.length);
-
+      // 2. Fetch all resources in parallel
+      const [books, githubRepos, stackOverflow, officialDocs] = await Promise.all([
+        fetchBooksFromGoogle(topic),
+        fetchGitHubRepos(topic),
+        getStackOverflowQuestions(topic, groq),
+        getOfficialDocs(topic, groq),
+      ]);
 
       try {
         const parsedResources = JSON.parse(aiResponse);
 
-        // 5. Add books, GitHub repos, and Research Papers to the resources array
+        // Add all resources
         if (books.length > 0) {
           parsedResources.resources.push({
             type: "Top Books",
             items: books.map((book: any) => ({
               title: book.title,
-              description: `${book.description} • By ${book.authors}${
-                book.rating ? ` • ⭐ ${book.rating}` : ""
-              }`,
-              channel: book.authors, // Use authors as "channel"
+              description: `${book.description} • By ${book.authors}${book.rating ? ` • ⭐ ${book.rating}` : ''}`,
+              channel: book.authors,
               link: book.link,
-            })),
+            }))
           });
         }
 
         if (githubRepos.length > 0) {
           parsedResources.resources.push({
-            type: "Top GitHub Repositories",
+            type: "GitHub Learning Repos",
             items: githubRepos.map((repo: any) => ({
               title: repo.title,
-              description: `${repo.description} • ⭐ ${repo.stars} stars`,
+              description: `${repo.description} • ⭐ ${repo.stars.toLocaleString()}`,
               channel: repo.channel,
               link: repo.link,
-            })),
+            }))
           });
         }
 
-        if (arxivPapers.length > 0) {
+        if (officialDocs.length > 0) {
           parsedResources.resources.push({
-            type: "Research Papers (arXiv)",
-            items: arxivPapers.map((paper: any) => ({
-              title: paper.title,
-              description: `${paper.description} • Published: ${paper.published}`,
-              channel: paper.channel,
-              link: paper.link,
-            })),
+            type: "Official Documentation",
+            items: officialDocs.map((doc: any) => ({
+              title: doc.title,
+              description: doc.description,
+              channel: "Official",
+              link: doc.link,
+            }))
           });
         }
 
+        if (stackOverflow.length > 0) {
+          parsedResources.resources.push({
+            type: "Common Questions",
+            items: stackOverflow.map((qa: any) => ({
+              title: qa.title,
+              description: qa.description,
+              channel: "StackOverflow",
+              link: qa.link,
+            }))
+          });
+        }
 
-        console.log(
-          "✅ AI-Generated YouTube Resources:",
-          parsedResources.resources[0]?.items?.length,
-          "videos, ",
-          parsedResources.resources[1]?.items?.length,
-          "playlists"
-        );
-        console.log("📚 First Book:", books[0]?.title);
-        console.log("🐙 First Repo:", githubRepos[0]?.title);
-        console.log("🔬 First Paper:", arxivPapers[0]?.title);
-
+        console.log("✅ Total sections:", parsedResources.resources.length);
 
         return NextResponse.json({
           success: true,
           topic,
           isResourceMode: true,
-          aiResponse:
-            parsedResources.overview || `Resources for learning ${topic}`,
+          aiResponse: parsedResources.overview || `Resources for ${topic}`,
           resources: parsedResources.resources || [],
         });
       } catch (parseError) {
-        console.error("❌ Failed to parse AI response as JSON:", parseError);
-        console.log("Raw AI Response:", aiResponse);
-
-        // Fallback with all resources
-        const fallbackResources = [
+        console.error("❌ Parse error:", parseError);
+        
+        // Robust fallback
+        const fallbackResources: any[] = [
           {
-            type: "Popular Videos",
-            items: [
-              {
-                title: "Search YouTube for tutorials",
-                description: "Find beginner-friendly videos",
-                channel: "Various",
-                link: `https://www.youtube.com/results?search_query=${encodeURIComponent(
-                  topic + " tutorial"
-                )}`,
-              },
-            ],
-          },
-          {
-            type: "Learning Playlists",
-            items: [
-              {
-                title: "Browse playlists",
-                description: "Find complete course playlists",
-                channel: "Various",
-                link: `https://www.youtube.com/results?search_query=${encodeURIComponent(
-                  topic + " complete course"
-                )}&sp=EgIQAw%253D%253D`,
-              },
-            ],
-          },
+            type: "YouTube Search",
+            items: [{
+              title: `${topic} tutorials`,
+              description: "Find video tutorials",
+              channel: "Various",
+              link: `https://www.youtube.com/results?search_query=${encodeURIComponent(topic + ' tutorial')}`
+            }]
+          }
         ];
 
-        // Add books to fallback
-        if (books.length > 0) {
-          fallbackResources.push({
-            type: "Top Books",
-            items: books.map((book: any) => ({
-              title: book.title,
-              description: `${book.description} • By ${book.authors}${
-                book.rating ? ` • ⭐ ${book.rating}` : ""
-              }`,
-              channel: book.authors,
-              link: book.link,
-            })),
-          });
-        }
-
-        // Add GitHub repos to fallback
-        if (githubRepos.length > 0) {
-          fallbackResources.push({
-            type: "Top GitHub Repositories",
-            items: githubRepos.map((repo: any) => ({
-              title: repo.title,
-              description: `${repo.description} • ⭐ ${repo.stars} stars`,
-              channel: repo.channel,
-              link: repo.link,
-            })),
-          });
-        }
-
-        // Add Research Papers to fallback
-        if (arxivPapers.length > 0) {
-          fallbackResources.push({
-            type: "Research Papers (arXiv)",
-            items: arxivPapers.map((paper: any) => ({
-              title: paper.title,
-              description: `${paper.description} • Published: ${paper.published}`,
-              channel: paper.channel,
-              link: paper.link,
-            })),
-          });
-        }
-
+        if (books.length > 0) fallbackResources.push({ type: "Top Books", items: books.map((b: any) => ({ title: b.title, description: b.description, channel: b.authors, link: b.link })) });
+        if (githubRepos.length > 0) fallbackResources.push({ type: "GitHub Repos", items: githubRepos.map((r: any) => ({ title: r.title, description: r.description, channel: r.channel, link: r.link })) });
+        if (officialDocs.length > 0) fallbackResources.push({ type: "Documentation", items: officialDocs });
+        if (stackOverflow.length > 0) fallbackResources.push({ type: "Q&A", items: stackOverflow });
 
         return NextResponse.json({
           success: true,
           topic,
           isResourceMode: true,
-          aiResponse: `Here are learning resources for ${topic}`,
+          aiResponse: `Learning resources for ${topic}`,
           resources: fallbackResources,
         });
       }
     }
 
-    // CHAT MODE: Normal conversational AI
-    console.log("💬 Chat Mode: Getting conversational response...");
-
+    // CHAT MODE
+    console.log("💬 Chat mode...");
     const chatCompletion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [
-        {
-          role: "system",
-          content:
-            "You are a helpful, friendly AI assistant. Provide clear, concise explanations and engage naturally in conversation.",
-        },
-        {
-          role: "user",
-          content: topic,
-        },
+        { role: "system", content: "You are a helpful AI assistant. Be clear and concise." },
+        { role: "user", content: topic }
       ],
       max_tokens: 1500,
       temperature: 0.7,
     });
 
-    const aiResponse =
-      chatCompletion.choices[0]?.message?.content || "No response";
-
-    console.log("✅ Chat AI Response:", aiResponse);
+    const aiResponse = chatCompletion.choices[0]?.message?.content || "No response";
+    console.log("✅ Chat response");
 
     return NextResponse.json({
       success: true,
@@ -472,11 +380,9 @@ IMPORTANT:
       isResourceMode: false,
       aiResponse,
     });
+    
   } catch (error: any) {
-    console.error("❌ Error in /api/recommend:", error);
-    return NextResponse.json(
-      { error: "Internal server error", details: error.message },
-      { status: 500 }
-    );
+    console.error("❌ Error:", error);
+    return NextResponse.json({ error: "Server error", details: error.message }, { status: 500 });
   }
 }
