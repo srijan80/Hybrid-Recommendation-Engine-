@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id              String            @id @default(cuid())
+  clerkId         String            @unique
+  email           String?
+  name            String?
+  imageUrl        String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  chatHistory     ChatHistory[]
+  resourceHistory ResourceHistory[]
+}
+
+model ChatHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  topic     String
+  query     String
+  response  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model ResourceHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  topic     String
+  query     String
+  resources Json
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}

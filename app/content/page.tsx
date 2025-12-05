@@ -6,6 +6,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { Resource } from "./resource";
 
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -116,10 +117,12 @@ export const Home = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+    <div className="flex flex-col h-screen bg-gradient-to-b from-gray-200 to-gray-300">
       {/* Messages Container */}
+
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto px-4 py-8">
+          
           {/* CHAT MODE */}
           {!resourceMode && (
             <>
@@ -149,7 +152,7 @@ export const Home = () => {
                       <button
                         key={prompt}
                         onClick={() => setInput(prompt)}
-                        className="p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all text-left text-sm font-medium text-gray-700 cursor-pointer"
+                        className="p-4 bg-gray-100 border-2 border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all text-left text-sm font-medium text-gray-700 cursor-pointer"
                       >
                         <span className="text-blue-600">💬</span> {prompt}
                       </button>
@@ -335,7 +338,7 @@ export const Home = () => {
       </div>
 
       {/* Input Box - Fixed at Bottom */}
-      <div className="sticky bottom-0 bg-gradient-to-t from-white via-white to-white border-t border-gray-200 px-4 py-4 shadow-2xl">
+      <div className="sticky bottom-0 bg-gradient-to-t  border-gray-200 px-4 py-4 shadow-2xl">
         <div className="max-w-4xl mx-auto">
           {/* Resource Mode Toggle */}
           <div className="flex items-center justify-center gap-4 mb-4">
@@ -345,8 +348,8 @@ export const Home = () => {
               </span>
               <button
                 onClick={() => setResourceMode(!resourceMode)}
-                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  resourceMode ? 'bg-gradient-to-r from-red-600 to-purple-600' : 'bg-gray-300'
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 focus:outline-none  focus:ring-blue-500 focus:ring-offset-2 ${
+                  resourceMode ? "bg-gradient-to-r from-red-500 to-pink-600" : "bg-gradient-to-r from-indigo-500 to-purple-600"
                 }`}
               >
                 <span
