@@ -1,15 +1,11 @@
 import type { Metadata } from "next";
-import Navbar from '@/Components/Navbar';
-
+import Navbar from "@/Components/Navbar";
 import { Geist, Geist_Mono } from "next/font/google";
 import {
   ClerkProvider,
-  SignInButton,
-  SignUpButton,
   SignedIn,
   SignedOut,
-  UserButton,
-} from '@clerk/nextjs'
+} from "@clerk/nextjs";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,19 +30,21 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-  <html lang="en">
-      <body>
-        <div className="flex">
-          {/* Sidebar Navbar */}
-          <Navbar />
+      <html lang="en">
+        <body>
+          <div className="flex">
+            {/* Show Navbar only if user is signed in */}
+            <SignedIn>
+              <Navbar />
+            </SignedIn>
 
-          {/* Main content */}
-          <main className="flex-1">
-            {children}
-          </main>
-        </div>
-      </body>
-    </html>
+            {/* Main content */}
+            <main className="flex-1">
+              {children}
+            </main>
+          </div>
+        </body>
+      </html>
     </ClerkProvider>
   );
 }

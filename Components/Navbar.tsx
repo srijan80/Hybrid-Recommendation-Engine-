@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { SignedOut, SignedIn, UserButton } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 
+
 interface ChatItem {
   id: string;
   topic: string;
@@ -93,27 +94,8 @@ export default function Navbar() {
 
   // Continue conversation (load into main chat)
   const handleContinue = async (id: string, type: "chat" | "resources") => {
-    try {
-      const response = await fetch(`/api/history/${id}?type=${type}`);
-      const data = await response.json();
-
-      if (data.item) {
-        // Store in localStorage to be picked up by the content page
-        localStorage.setItem(
-          "continueConversation",
-          JSON.stringify({
-            type,
-            item: data.item,
-          })
-        );
-
-        // Navigate to content page
-        router.push("/content");
-      }
-    } catch (error) {
-      console.error("Failed to load conversation:", error);
-      alert("Failed to load conversation");
-    }
+    // Navigate to content page with continue params
+    router.push(`/content?continue=${type}&id=${id}`);
   };
 
   // Edit topic name

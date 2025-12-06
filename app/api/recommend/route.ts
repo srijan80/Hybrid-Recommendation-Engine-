@@ -10,8 +10,8 @@ const YOUTUBE_API_KEY = "AIzaSyCo71Ne_iGV1uFr_afcKb2F5nTp8ZwAoi0";
 // Fetch YouTube videos
 async function fetchYouTubeVideos(topic: string) {
   try {
-    const searchQuery = encodeURIComponent(`${topic} tutorial beginner`);
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&order=viewCount&maxResults=3&key=${YOUTUBE_API_KEY}`;
+    const searchQuery = encodeURIComponent(`${topic} tutorial beginner -shorts`);
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&order=viewCount&maxResults=3&key=${YOUTUBE_API_KEY}&videoDuration=medium&videoDuration=long`;
     const response = await fetch(url);
     const data = await response.json();
     if (!data.items || data.items.length === 0) return [];
@@ -84,10 +84,12 @@ async function fetchBooksFromGoogle(topic: string) {
 // Fetch GitHub repos
 async function fetchGitHubRepos(topic: string) {
   try {
+    // Avoid suggesting Python/C for Java queries
+    const languageSpecific = topic.toLowerCase().includes('java') ? 'java' : topic.toLowerCase().includes('python') ? 'python' : topic.toLowerCase().includes('c++') || topic.toLowerCase().includes('c ') ? 'c' : '';
     const queries = [
-      `awesome-${topic} in:name`,
-      `${topic} tutorial in:name`,
-      `learn ${topic} in:name`,
+      `awesome-${topic} ${languageSpecific} in:name`,
+      `${topic} ${languageSpecific} tutorial in:name`,
+      `learn ${topic} ${languageSpecific} in:name`,
     ];
     let allRepos: any[] = [];
 

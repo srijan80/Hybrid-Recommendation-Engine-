@@ -1,6 +1,6 @@
-//app/content/page.tsx
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Send, Sparkles, User, Bot } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -18,11 +18,13 @@ interface ResourceSection {
 }
 
 export default function ContentPage() {
+  const searchParams = useSearchParams();
   const [input, setInput] = useState("");
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [resourcesData, setResourcesData] = useState<ResourceSection[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [resourceMode, setResourceMode] = useState(false);
+  const [hasLoadedFromHistory, setHasLoadedFromHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -35,42 +37,52 @@ export default function ContentPage() {
 
   // Load conversation from history (continue feature)
   useEffect(() => {
-    const continueData = localStorage.getItem("continueConversation");
+    const continueType = searchParams.get("continue");
+    const continueId = searchParams.get("id");
 
-    if (continueData) {
-      try {
-        const { type, item } = JSON.parse(continueData);
-
-        if (type === "chat") {
-          // Load chat conversation
-          setChatMessages([
-            { role: "user", content: item.query },
-            { role: "assistant", content: item.response },
-          ]);
-          setResourceMode(false);
-        } else if (type === "resources") {
-          // Load resource search
-          setResourcesData(item.resources || []);
-          setResourceMode(true);
-        }
-
-        // Clear localStorage after loading
-        localStorage.removeItem("continueConversation");
-      } catch (error) {
-        console.error("Failed to load conversation:", error);
-      }
+    if (continueType && continueId) {
+      // Fetch the history item
+      fetch(`/api/history/${continueId}?type=${continueType}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.item) {
+            if (continueType === "chat") {
+              // Load chat conversation
+              setChatMessages([
+                { role: "user", content: data.item.query },
+                { role: "assistant", content: data.item.response },
+              ]);
+              setResourceMode(false);
+            } else if (continueType === "resources") {
+              // Load resource search
+              setResourcesData(data.item.resources || []);
+              setResourceMode(true);
+            }
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to load conversation:", error);
+        })
+        .finally(() => {
+          // Clean up URL params
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setHasLoadedFromHistory(true);
+        });
     } else {
-      // If no continue data, ensure we start fresh
-      setChatMessages([]);
-      setResourcesData(null);
+      // If no continue data, ensure we start fresh (only if not loaded from history)
+      if (!hasLoadedFromHistory) {
+        setChatMessages([]);
+        setResourcesData(null);
+      }
     }
-  }, []);
+  }, [searchParams]);
 
   // Handle new chat (reset everything)
   const handleNewChat = () => {
     setChatMessages([]);
     setResourcesData(null);
     setInput("");
+    setHasLoadedFromHistory(false);
     localStorage.removeItem("continueConversation");
   };
 
@@ -136,8 +148,6 @@ export default function ContentPage() {
     }
 
     setIsLoading(false);
-
-    
   };
 
   return (
@@ -176,14 +186,32 @@ export default function ContentPage() {
             // Resource Mode - Show Cards
             <div className="w-full px-4">
               {resourcesData && resourcesData.length > 0 ? (
-                <Resource data={resourcesData} />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center px-4 py-20">
-                  <Sparkles className="w-20 h-20 text-red-600 mx-auto mb-4" />
-                  <h2 className="text-4xl font-bold text-gray-900 mb-3">Find Learning Resources</h2>
-                  <p className="text-lg text-gray-600">Search for any topic to get curated resources</p>
-                </div>
-              )}
+  <Resource data={resourcesData} />
+) : (
+  <div className="flex flex-col items-center justify-center h-full text-center px-4 py-20">
+    <Sparkles className="w-20 h-20 text-red-600 mx-auto mb-4" />
+    <h2 className="text-4xl font-bold text-gray-900 mb-3">Find Learning Resources</h2>
+    <p className="text-lg text-gray-600">Search for any topic to get curated resources</p>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl w-full mt-10">
+      {[
+        "Learn machine learning",
+        "React tutorials",
+        "Java basics",
+        "Best articles to understand blockchain"
+      ].map((prompt) => (
+        <button
+          key={prompt}
+          onClick={() => setInput(prompt)}
+          className="p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-red-400 hover:bg-red-50 hover:shadow-md transition-all text-left text-sm font-medium text-gray-700"
+        >
+          🔎 {prompt}
+        </button>
+      ))}
+    </div>
+  </div>
+)}
+
 
               {isLoading && (
                 <div className="flex justify-center items-center py-20">
@@ -271,7 +299,7 @@ export default function ContentPage() {
               <span className={`text-sm font-semibold ${!resourceMode ? "text-blue-600" : "text-gray-400"}`}>💬 Chat</span>
               <button
                 onClick={() => setResourceMode(!resourceMode)}
-                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all ${resourceMode ? "bg-gradient-to-r from-red-600 to-purple-600" : "bg-gray-300"}`}
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all ${resourceMode ? "bg-gradient-to-r from-red-600 to-purple-600" : "bg-gradient-to-r from-blue-600 to-purple-600"}`}
               >
                 <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform ${resourceMode ? "translate-x-6" : "translate-x-1"}`} />
               </button>
