@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { Home } from "@/app/content/page";
+import  ContentPage  from "@/app/content/page";
 import { Resource } from "@/app/content/resource";
 import Navbar from "@/Components/Navbar";
 import { useEffect, useState } from "react";
@@ -10,7 +10,7 @@ export default function Page() {
 
   return (
     <div>
-    <Home />
+    <ContentPage />
     </div>
   );
 }

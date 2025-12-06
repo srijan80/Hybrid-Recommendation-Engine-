@@ -1,5 +1,12 @@
 "use client";
-import { Sparkles, User, MessageSquare, Search } from "lucide-react";
+import {
+  Sparkles,
+  MessageSquare,
+  Search,
+  Trash2,
+  Edit2,
+  Play,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SignedOut, SignedIn, UserButton } from "@clerk/nextjs";
@@ -27,10 +34,25 @@ export default function Navbar() {
   const [activeTab, setActiveTab] = useState<"chat" | "resources">("chat");
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
   const router = useRouter();
 
   useEffect(() => {
     fetchHistory();
+
+    // Listen for history updates from content page
+    const handleHistoryUpdate = () => {
+      console.log("History update event received");
+      fetchHistory();
+    };
+
+    window.addEventListener("historyUpdated", handleHistoryUpdate);
+
+    return () => {
+      window.removeEventListener("historyUpdated", handleHistoryUpdate);
+    };
   }, []);
 
   const fetchHistory = async () => {
@@ -46,6 +68,92 @@ export default function Navbar() {
     setIsLoading(false);
   };
 
+  // Delete history item
+  const handleDelete = async (id: string, type: "chat" | "resources") => {
+    if (!confirm("Delete this item?")) return;
+
+    try {
+      const response = await fetch(`/api/history/${id}?type=${type}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        if (type === "chat") {
+          setChatHistory(chatHistory.filter((item) => item.id !== id));
+        } else {
+          setResourceHistory(resourceHistory.filter((item) => item.id !== id));
+        }
+        setOpenMenuId(null);
+      }
+    } catch (error) {
+      console.error("Failed to delete:", error);
+      alert("Failed to delete item");
+    }
+  };
+
+  // Continue conversation (load into main chat)
+  const handleContinue = async (id: string, type: "chat" | "resources") => {
+    try {
+      const response = await fetch(`/api/history/${id}?type=${type}`);
+      const data = await response.json();
+
+      if (data.item) {
+        // Store in localStorage to be picked up by the content page
+        localStorage.setItem(
+          "continueConversation",
+          JSON.stringify({
+            type,
+            item: data.item,
+          })
+        );
+
+        // Navigate to content page
+        router.push("/content");
+      }
+    } catch (error) {
+      console.error("Failed to load conversation:", error);
+      alert("Failed to load conversation");
+    }
+  };
+
+  // Edit topic name
+  const handleEdit = (id: string, currentTopic: string) => {
+    setEditingId(id);
+    setEditValue(currentTopic);
+    setOpenMenuId(null);
+  };
+
+  const saveEdit = async (id: string, type: "chat" | "resources") => {
+    try {
+      const response = await fetch(`/api/history/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: editValue, type }),
+      });
+
+      if (response.ok) {
+        // Update local state
+        if (type === "chat") {
+          setChatHistory(
+            chatHistory.map((item) =>
+              item.id === id ? { ...item, topic: editValue } : item
+            )
+          );
+        } else {
+          setResourceHistory(
+            resourceHistory.map((item) =>
+              item.id === id ? { ...item, topic: editValue } : item
+            )
+          );
+        }
+        setEditingId(null);
+      }
+    } catch (error) {
+      console.error("Failed to update:", error);
+      alert("Failed to update topic");
+    }
+  };
+
   // Filter items
   const filteredItems =
     activeTab === "chat"
@@ -57,37 +165,50 @@ export default function Navbar() {
         );
 
   return (
-    <nav className="bg-gray-200 border-r shadow-sm w-56 min-h-screen flex flex-col  justify-between p-4 sticky left-0 top-0">
-      <div
-        onClick={() => router.refresh()}
-        className="flex items-center gap-2 px-3 py-3 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
-      >
-        <Sparkles className="w-6 h-6 text-blue-500" />
-        <span className="text-lg font-bold text-gray-800">HRE</span>
-        <div className="ml-auto">
-          <SignedOut>
-            <Link
-              href="/sign-in"
-              className="block px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-              Sign In
-            </Link>
-          </SignedOut>
-          <SignedIn>
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox:
-                    "w-10 h-10 border-2 border-blue-600 rounded-full shadow-sm",
-                },
-              }}
-            />
-          </SignedIn>
+    <nav className="bg-gray-200 border-r shadow-sm w-64 min-h-screen flex flex-col justify-between p-4 sticky left-0 top-0">
+      <div>
+        <div
+          onClick={() => router.push("/content")}
+          className="flex items-center gap-2 px-3 py-3 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-gray-50 transition-colors mb-4"
+        >
+          <Sparkles className="w-6 h-6 text-blue-500" />
+          <span className="text-lg font-bold text-gray-800">HRE</span>
+          <div className="ml-auto">
+            <SignedOut>
+              <Link
+                href="/sign-in"
+                className="block px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              >
+                Sign In
+              </Link>
+            </SignedOut>
+            <SignedIn>
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox:
+                      "w-10 h-10 border-2 border-blue-600 rounded-full shadow-sm",
+                  },
+                }}
+              />
+            </SignedIn>
+          </div>
         </div>
-      </div>
 
+        {/* New Chat Button */}
+        <button
+          onClick={() => {
+            localStorage.removeItem("continueConversation");
+            window.location.href = "/content";
+          }}
+          className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all shadow-md flex items-center justify-center gap-2 mb-4"
+        >
+          <Sparkles className="w-4 h-4" />
+          New Chat
+        </button>
+      </div>
       {/* Tabs + Search */}
-      <div className="flex flex-col  flex-1 mt-4">
+      <div className="flex flex-col flex-1 mt-0">
         <div className="flex gap-2 mb-3">
           <button
             onClick={() => setActiveTab("chat")}
@@ -115,7 +236,7 @@ export default function Navbar() {
           <Search className="absolute left-2 top-2 w-4 h-4 text-gray-500" />
           <input
             type="text"
-            placeholder="Search..."
+            placeholder="Search history..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-8 pr-2 text-gray-500 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -123,20 +244,86 @@ export default function Navbar() {
         </div>
 
         {/* History List */}
-        <div className="flex-1 text-black overflow-y-auto">
+        <div className="flex-1 text-black overflow-y-auto space-y-1">
           {isLoading ? (
-            <p className="text-center text-gray-400 text-sm">Loading...</p>
+            <p className="text-center text-gray-400 text-sm py-10">
+              Loading...
+            </p>
           ) : filteredItems.length > 0 ? (
-            <div className="space-y-1">
-              {filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="px-3 py-2 text-sm rounded-md hover:bg-gray-300 cursor-pointer truncate transition-colors"
-                >
-                  {item.topic}
-                </div>
-              ))}
-            </div>
+            filteredItems.map((item) => (
+              <div
+                key={item.id}
+                className="px-3 py-2 text-sm rounded-md hover:bg-gray-300 transition-colors relative group"
+                onClick={() => handleContinue(item.id, activeTab)}
+              >
+                {editingId === item.id ? (
+                  // Edit Mode
+                  <div
+                    className="flex items-center gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="text"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      className="flex-1 px-2 py-1 text-xs border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveEdit(item.id, activeTab);
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                    />
+                    <button
+                      onClick={() => saveEdit(item.id, activeTab)}
+                      className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                    >
+                      Save
+                    </button>
+                  </div>
+                ) : (
+                  // Normal Mode
+                  <div className="flex items-center justify-between cursor-pointer">
+                    <span className="truncate flex-1">{item.topic}</span>
+
+                    {/* Action Buttons (show on hover) */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleContinue(item.id, activeTab);
+                        }}
+                        className="p-1 hover:bg-blue-100 rounded"
+                        title="Continue"
+                      >
+                        <Play className="w-3 h-3 text-blue-600" />
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(item.id, item.topic);
+                        }}
+                        className="p-1 hover:bg-yellow-100 rounded"
+                        title="Edit"
+                      >
+                        <Edit2 className="w-3 h-3 text-yellow-600" />
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(item.id, activeTab);
+                        }}
+                        className="p-1 hover:bg-red-100 rounded"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3 h-3 text-red-600" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
           ) : (
             <div className="text-center py-10">
               {activeTab === "chat" ? (
