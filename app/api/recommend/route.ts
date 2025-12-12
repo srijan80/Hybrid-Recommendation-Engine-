@@ -8,9 +8,14 @@ const GOOGLE_BOOKS_API_KEY = "AIzaSyCo71Ne_iGV1uFr_afcKb2F5nTp8ZwAoi0";
 const YOUTUBE_API_KEY = "AIzaSyCo71Ne_iGV1uFr_afcKb2F5nTp8ZwAoi0";
 
 // Fetch YouTube videos
-async function fetchYouTubeVideos(topic: string) {
+async function fetchYouTubeVideos(topic: string, lang?: string) {
   try {
-    const searchQuery = encodeURIComponent(`${topic} tutorial beginner -shorts`);
+    const langPart = lang ? `${lang} ` : "";
+    // if we detected a target language, exclude common other languages to reduce noise
+    const ALL_LANGS = ['java','python','javascript','typescript','c','c++','go','rust'];
+    const exclude = lang ? ALL_LANGS.filter((l) => l !== lang) : [];
+    const excludeStr = exclude.length ? ` ${exclude.map((l) => `-${l}`).join(' ')}` : '';
+    const searchQuery = encodeURIComponent(`${topic} ${langPart}tutorial beginner -shorts${excludeStr}`);
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&order=viewCount&maxResults=3&key=${YOUTUBE_API_KEY}&videoDuration=medium&videoDuration=long`;
     const response = await fetch(url);
     const data = await response.json();
@@ -38,9 +43,13 @@ async function fetchYouTubeVideos(topic: string) {
 }
 
 // Fetch YouTube playlists
-async function fetchYouTubePlaylists(topic: string) {
+async function fetchYouTubePlaylists(topic: string, lang?: string) {
   try {
-    const searchQuery = encodeURIComponent(`${topic} course complete`);
+    const langPart = lang ? `${lang} ` : "";
+    const ALL_LANGS = ['java','python','javascript','typescript','c','c++','go','rust'];
+    const exclude = lang ? ALL_LANGS.filter((l) => l !== lang) : [];
+    const excludeStr = exclude.length ? ` ${exclude.map((l) => `-${l}`).join(' ')}` : '';
+    const searchQuery = encodeURIComponent(`${topic} ${langPart}course complete${excludeStr}`);
     const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=playlist&maxResults=2&key=${YOUTUBE_API_KEY}`;
     const response = await fetch(url);
     const data = await response.json();
@@ -58,9 +67,13 @@ async function fetchYouTubePlaylists(topic: string) {
 }
 
 // Fetch books
-async function fetchBooksFromGoogle(topic: string) {
+async function fetchBooksFromGoogle(topic: string, lang?: string) {
   try {
-    const searchQuery = encodeURIComponent(`${topic} programming tutorial`);
+    const langPart = lang ? `${lang} ` : "";
+    const ALL_LANGS = ['java','python','javascript','typescript','c','c++','go','rust'];
+    const exclude = lang ? ALL_LANGS.filter((l) => l !== lang) : [];
+    const excludeStr = exclude.length ? ` ${exclude.map((l) => `-${l}`).join(' ')}` : '';
+    const searchQuery = encodeURIComponent(`${topic} ${langPart}programming tutorial${excludeStr}`);
     const url = `https://www.googleapis.com/books/v1/volumes?q=${searchQuery}&maxResults=3&orderBy=relevance&key=${GOOGLE_BOOKS_API_KEY}`;
     const response = await fetch(url);
     const data = await response.json();
@@ -82,14 +95,17 @@ async function fetchBooksFromGoogle(topic: string) {
 }
 
 // Fetch GitHub repos
-async function fetchGitHubRepos(topic: string) {
+async function fetchGitHubRepos(topic: string, lang?: string) {
   try {
-    // Avoid suggesting Python/C for Java queries
-    const languageSpecific = topic.toLowerCase().includes('java') ? 'java' : topic.toLowerCase().includes('python') ? 'python' : topic.toLowerCase().includes('c++') || topic.toLowerCase().includes('c ') ? 'c' : '';
+    // Accept an optional explicit language hint (lang) or infer from topic
+    const t = topic.toLowerCase();
+    const inferred = lang || (t.includes('java') ? 'java' : t.includes('python') ? 'python' : (t.includes('c++') || t.includes('c ') ? 'c' : t.includes('javascript') || t.includes('js') ? 'javascript' : ''));
+    // Use GitHub language qualifier for better results
+    const langQualifier = inferred ? `language:${inferred}` : '';
     const queries = [
-      `awesome-${topic} ${languageSpecific} in:name`,
-      `${topic} ${languageSpecific} tutorial in:name`,
-      `learn ${topic} ${languageSpecific} in:name`,
+      `awesome-${topic} ${langQualifier} in:name`,
+      `${topic} ${langQualifier} tutorial in:name`,
+      `learn ${topic} ${langQualifier} in:name`,
     ];
     let allRepos: any[] = [];
 
@@ -124,9 +140,10 @@ async function fetchGitHubRepos(topic: string) {
 }
 
 // Get StackOverflow Q&A
-async function getStackOverflowQuestions(topic: string, groq: any) {
+async function getStackOverflowQuestions(topic: string, groq: any, lang?: string) {
   try {
-    const prompt = `For "${topic}", suggest 3 popular StackOverflow questions beginners ask. Format as JSON: {"questions": [{"title": "...", "description": "...", "link": "https://stackoverflow.com/..."}]}`;
+    const langNote = lang ? ` (focus only on ${lang}; exclude other languages)` : "";
+    const prompt = `For "${topic}"${langNote}, suggest 3 popular StackOverflow questions beginners ask specifically about ${lang || topic}. Return only questions relevant to that language. Format as JSON: {"questions": [{"title": "...", "description": "...", "link": "https://stackoverflow.com/..."}]}`;
     const completion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [
@@ -146,9 +163,10 @@ async function getStackOverflowQuestions(topic: string, groq: any) {
 }
 
 // Get official docs
-async function getOfficialDocs(topic: string, groq: any) {
+async function getOfficialDocs(topic: string, groq: any, lang?: string) {
   try {
-    const prompt = `For "${topic}", provide 2 official documentation sites. Format as JSON: {"docs": [{"title": "...", "description": "...", "link": "https://..."}]}`;
+    const langNote = lang ? ` (prefer ${lang} docs and exclude unrelated languages)` : "";
+    const prompt = `For "${topic}"${langNote}, provide 2 official documentation sites specific to ${lang || topic}. Return JSON only: {"docs": [{"title": "...", "description": "...", "link": "https://..."}]}`;
     const completion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [
@@ -169,8 +187,8 @@ async function getOfficialDocs(topic: string, groq: any) {
 
 export async function POST(req: Request) {
   try {
-    const { topic, resourceMode } = await req.json();
-    console.log("🔥 Request:", { topic, resourceMode });
+    const { topic, resourceMode, historyId } = await req.json();
+    console.log("🔥 Request:", { topic, resourceMode, historyId });
 
     if (!topic || typeof topic !== "string") {
       return NextResponse.json({ error: "No valid topic" }, { status: 400 });
@@ -183,13 +201,33 @@ export async function POST(req: Request) {
     if (resourceMode) {
       console.log("📺 Resources mode...");
 
+      // infer language from topic to bias resource searches (e.g., java, python, javascript)
+      const tt = topic.toLowerCase();
+      const languageSpecific = tt.includes('java')
+        ? 'java'
+        : tt.includes('python')
+        ? 'python'
+        : tt.includes('javascript') || tt.includes('js')
+        ? 'javascript'
+        : tt.includes('typescript') || tt.includes('ts')
+        ? 'typescript'
+        : tt.includes('c++')
+        ? 'c++'
+        : tt.includes(' c ') || tt === 'c'
+        ? 'c'
+        : tt.includes('go')
+        ? 'go'
+        : tt.includes('rust')
+        ? 'rust'
+        : '';
+
       const [youtubeVideos, youtubePlaylists, books, githubRepos, stackOverflow, officialDocs] = await Promise.all([
-        fetchYouTubeVideos(topic),
-        fetchYouTubePlaylists(topic),
-        fetchBooksFromGoogle(topic),
-        fetchGitHubRepos(topic),
-        getStackOverflowQuestions(topic, groq),
-        getOfficialDocs(topic, groq),
+        fetchYouTubeVideos(topic, languageSpecific),
+        fetchYouTubePlaylists(topic, languageSpecific),
+        fetchBooksFromGoogle(topic, languageSpecific),
+        fetchGitHubRepos(topic, languageSpecific),
+        getStackOverflowQuestions(topic, groq, languageSpecific),
+        getOfficialDocs(topic, groq, languageSpecific),
       ]);
 
       const resources: any[] = [];
@@ -220,18 +258,39 @@ export async function POST(req: Request) {
       if (officialDocs.length > 0) resources.push({ type: "Official Documentation", items: officialDocs });
       if (stackOverflow.length > 0) resources.push({ type: "Common Questions", items: stackOverflow });
 
-      // ✅ SAVE TO DATABASE
+      // ✅ SAVE TO DATABASE (create or update if historyId provided)
+      let savedResourceItem = null;
       if (user) {
         try {
-          await prisma.resourceHistory.create({
-            data: {
-              userId: user.id,
-              topic,
-              query: topic,
-              resources: resources,
-            },
-          });
-          console.log("✅ Resource history saved");
+          if (historyId) {
+            // Update existing resource history
+            const existing = await prisma.resourceHistory.findFirst({ where: { id: historyId, userId: user.id } });
+            if (existing) {
+              const updated = await prisma.resourceHistory.update({
+                where: { id: historyId },
+                data: {
+                  topic: topic || existing.topic,
+                  query: topic || existing.query,
+                  resources: resources,
+                },
+              });
+              savedResourceItem = updated;
+              console.log("✅ Resource history updated");
+            } else {
+              // fallback to create if not found
+              const created = await prisma.resourceHistory.create({
+                data: { userId: user.id, topic, query: topic, resources },
+              });
+              savedResourceItem = created;
+              console.log("✅ Resource history created (fallback)");
+            }
+          } else {
+            const created = await prisma.resourceHistory.create({
+              data: { userId: user.id, topic, query: topic, resources },
+            });
+            savedResourceItem = created;
+            console.log("✅ Resource history saved");
+          }
         } catch (dbError) {
           console.error("❌ Failed to save resource history:", dbError);
         }
@@ -260,18 +319,35 @@ export async function POST(req: Request) {
 
     const aiResponse = chatCompletion.choices[0]?.message?.content || "No response";
 
-    // ✅ SAVE TO DATABASE
+    // ✅ SAVE TO DATABASE (create or update existing if historyId provided)
+    let savedChatItem = null;
     if (user) {
       try {
-        await prisma.chatHistory.create({
-          data: {
-            userId: user.id,
-            topic,
-            query: topic,
-            response: aiResponse,
-          },
-        });
-        console.log("✅ Chat history saved");
+        if (historyId) {
+          const existing = await prisma.chatHistory.findFirst({ where: { id: historyId, userId: user.id } });
+          if (existing) {
+            // Append both user's latest message and assistant reply to preserve conversation transcript
+            const combined = `${existing.response || ""}\n\nUser: ${topic}\nAssistant: ${aiResponse}`;
+            const updated = await prisma.chatHistory.update({
+              where: { id: historyId },
+              data: {
+                topic: existing.topic || topic,
+                query: existing.query || topic,
+                response: combined,
+              },
+            });
+            savedChatItem = updated;
+            console.log("✅ Chat history updated (appended user+assistant)");
+          } else {
+            const created = await prisma.chatHistory.create({ data: { userId: user.id, topic, query: topic, response: `User: ${topic}\nAssistant: ${aiResponse}` } });
+            savedChatItem = created;
+            console.log("✅ Chat history created (fallback)");
+          }
+        } else {
+          const created = await prisma.chatHistory.create({ data: { userId: user.id, topic, query: topic, response: `User: ${topic}\nAssistant: ${aiResponse}` } });
+          savedChatItem = created;
+          console.log("✅ Chat history saved");
+        }
       } catch (dbError) {
         console.error("❌ Failed to save chat history:", dbError);
       }
@@ -282,6 +358,7 @@ export async function POST(req: Request) {
       topic,
       isResourceMode: false,
       aiResponse,
+      item: savedChatItem,
     });
   } catch (error: any) {
     console.error("❌ Error:", error);

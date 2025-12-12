@@ -27,6 +27,8 @@ export default function ContentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [resourceMode, setResourceMode] = useState(false);
   const [hasLoadedFromHistory, setHasLoadedFromHistory] = useState(false);
+  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
+  const [currentHistoryItem, setCurrentHistoryItem] = useState<any | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -55,10 +57,16 @@ export default function ContentPage() {
                 { role: "assistant", content: data.item.response },
               ]);
               setResourceMode(false);
+              // Track which history item we're continuing so subsequent submits update it
+              setCurrentHistoryId(continueId);
+              setCurrentHistoryItem(data.item);
             } else if (continueType === "resources") {
               // Load resource search
               setResourcesData(data.item.resources || []);
               setResourceMode(true);
+              // track resource id too (if desired later)
+              setCurrentHistoryId(continueId);
+              setCurrentHistoryItem(data.item);
             }
           }
         })
@@ -75,6 +83,8 @@ export default function ContentPage() {
       if (!hasLoadedFromHistory) {
         setChatMessages([]);
         setResourcesData(null);
+        setCurrentHistoryId(null);
+        setCurrentHistoryItem(null);
       }
     }
   }, [searchParams]);
@@ -86,6 +96,8 @@ export default function ContentPage() {
     setInput("");
     setHasLoadedFromHistory(false);
     localStorage.removeItem("continueConversation");
+    setCurrentHistoryId(null);
+    setCurrentHistoryItem(null);
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -103,18 +115,20 @@ export default function ContentPage() {
     setIsLoading(true);
 
     try {
+      console.log("Submitting message, currentHistoryId:", currentHistoryId);
       const res = await fetch("/api/recommend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic: userMessage,
           resourceMode: resourceMode,
+          historyId: currentHistoryId || undefined,
         }),
       });
 
       const data = await res.json();
 
-      if (data.success) {
+        if (data.success) {
         if (resourceMode) {
           // Resources mode
           if (data.resources && Array.isArray(data.resources)) {
@@ -126,6 +140,14 @@ export default function ContentPage() {
             ...prev,
             { role: "assistant", content: data.aiResponse },
           ]);
+
+          // If server returned an updated history item, keep local copy in sync
+          if (data.item) {
+            setCurrentHistoryItem(data.item);
+            if (data.item.id) setCurrentHistoryId(data.item.id);
+            // notify navbar to refresh
+            window.dispatchEvent(new Event("historyUpdated"));
+          }
         }
 
         // Trigger history refresh after successful save
