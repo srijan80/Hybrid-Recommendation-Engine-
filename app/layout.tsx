@@ -33,13 +33,15 @@ export default function RootLayout({
       <html lang="en">
         <body>
           <div className="flex">
-            {/* Show Navbar only if user is signed in */}
+            {/* Show Navbar only if user is signed in - hidden on mobile/tablet, visible on lg screens */}
             <SignedIn>
-              <Navbar />
+              <div className="hidden lg:block">
+                <Navbar />
+              </div>
             </SignedIn>
 
             {/* Main content */}
-            <main className="flex-1">
+            <main className="flex-1 w-full">
               {children}
             </main>
           </div>

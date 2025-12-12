@@ -5,6 +5,8 @@ import { Send, Sparkles, User, Bot } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import Link from "next/link";
+import { SignedOut, SignedIn, UserButton } from "@clerk/nextjs";
 import { Resource } from "./resource";
 
 interface Message {
@@ -152,17 +154,45 @@ export default function ContentPage() {
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+      {/* Mobile/Tablet Header - Hidden on lg screens */}
+      <div className="lg:hidden bg-white border-b shadow-sm px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-blue-500" />
+          <span className="font-bold text-gray-800">HRE</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <SignedOut>
+            <Link
+              href="/sign-in"
+              className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              Sign In
+            </Link>
+          </SignedOut>
+          <SignedIn>
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox:
+                    "w-8 h-8 border-2 border-blue-600 rounded-full shadow-sm",
+                },
+              }}
+            />
+          </SignedIn>
+        </div>
+      </div>
+
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
           {!resourceMode && chatMessages.length === 0 ? (
             // Empty State - Chat Mode
             <div className="flex flex-col items-center justify-center h-full text-center px-4 py-20">
               <div className="mb-8">
-                <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl flex items-center justify-center mb-6 mx-auto shadow-lg">
-                  <Sparkles className="w-10 h-10 text-white" />
+                <div className="w-16 sm:w-20 h-16 sm:h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl flex items-center justify-center mb-6 mx-auto shadow-lg">
+                  <Sparkles className="w-8 sm:w-10 h-8 sm:h-10 text-white" />
                 </div>
-                <h2 className="text-4xl font-bold text-gray-900 mb-3">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2 sm:mb-3">
                   What do you want to learn?
                 </h2>
                 <p className="text-lg text-gray-600 max-w-2xl mx-auto">
@@ -175,7 +205,7 @@ export default function ContentPage() {
                   <button
                     key={prompt}
                     onClick={() => setInput(prompt)}
-                    className="p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all text-left text-sm font-medium text-gray-700"
+                    className="p-2.5 sm:p-3 md:p-4 bg-white border-2 border-gray-200 rounded-lg sm:rounded-xl hover:border-blue-400 hover:bg-blue-50 hover:shadow-md transition-all text-left text-sm font-medium text-gray-700"
                   >
                     💬 {prompt}
                   </button>
@@ -190,8 +220,8 @@ export default function ContentPage() {
 ) : (
   <div className="flex flex-col items-center justify-center h-full text-center px-4 py-20">
     <Sparkles className="w-20 h-20 text-red-600 mx-auto mb-4" />
-    <h2 className="text-4xl font-bold text-gray-900 mb-3">Find Learning Resources</h2>
-    <p className="text-lg text-gray-600">Search for any topic to get curated resources</p>
+    <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2 sm:mb-3">Find Learning Resources</h2>
+    <p className="text-sm sm:text-base md:text-lg text-gray-600">Search for any topic to get curated resources</p>
 
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl w-full mt-10">
       {[
@@ -203,7 +233,7 @@ export default function ContentPage() {
         <button
           key={prompt}
           onClick={() => setInput(prompt)}
-          className="p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-red-400 hover:bg-red-50 hover:shadow-md transition-all text-left text-sm font-medium text-gray-700"
+          className="p-2.5 sm:p-3 md:p-4 bg-white border-2 border-gray-200 rounded-lg sm:rounded-xl hover:border-red-400 hover:bg-red-50 hover:shadow-md transition-all text-left text-sm font-medium text-gray-700"
         >
           🔎 {prompt}
         </button>
@@ -227,10 +257,10 @@ export default function ContentPage() {
             // Chat Messages
             <div className="space-y-8 pb-4">
               {chatMessages.map((message, index) => (
-                <div key={index} className={`flex gap-4 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div key={index} className={`flex gap-2 sm:gap-3 md:gap-4 px-2 sm:px-0 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                   {message.role === "assistant" && (
                     <div className="flex-shrink-0 w-9 h-9 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-md">
-                      <Bot className="w-5 h-5 text-white" />
+                      <Bot className="w-4 sm:w-5 h-4 sm:h-5 text-white" />
                     </div>
                   )}
 
@@ -263,16 +293,16 @@ export default function ContentPage() {
 
                   {message.role === "user" && (
                     <div className="flex-shrink-0 w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center shadow-md">
-                      <User className="w-5 h-5 text-white" />
+                      <User className="w-4 sm:w-5 h-4 sm:h-5 text-white" />
                     </div>
                   )}
                 </div>
               ))}
 
               {isLoading && (
-                <div className="flex gap-4 justify-start">
+                <div className="flex gap-2 sm:gap-3 md:gap-4 justify-start px-2 sm:px-0">
                   <div className="flex-shrink-0 w-9 h-9 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-md">
-                    <Bot className="w-5 h-5 text-white" />
+                    <Bot className="w-4 sm:w-5 h-4 sm:h-5 text-white" />
                   </div>
                   <div className="bg-white border border-gray-300 rounded-2xl px-6 py-4 shadow-md">
                     <div className="flex gap-2">
@@ -301,7 +331,7 @@ export default function ContentPage() {
                 onClick={() => setResourceMode(!resourceMode)}
                 className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all ${resourceMode ? "bg-gradient-to-r from-red-600 to-purple-600" : "bg-gradient-to-r from-blue-600 to-purple-600"}`}
               >
-                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform ${resourceMode ? "translate-x-6" : "translate-x-1"}`} />
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform ${resourceMode ? "translate-x-5 sm:translate-x-6" : "translate-x-0.5 sm:translate-x-1"}`} />
               </button>
               <span className={`text-sm font-semibold ${resourceMode ? "text-red-600" : "text-gray-400"}`}>🎥 Resources</span>
             </div>
@@ -327,7 +357,7 @@ export default function ContentPage() {
               disabled={!input.trim() || isLoading}
               className={`absolute right-2 bottom-2 p-2.5 ${resourceMode ? "bg-red-600" : "bg-blue-600"} text-white rounded-lg hover:shadow-lg disabled:opacity-50 transition-all`}
             >
-              <Send className="w-5 h-5" />
+              <Send className="w-4 sm:w-5 h-4 sm:h-5" />
             </button>
           </form>
         </div>

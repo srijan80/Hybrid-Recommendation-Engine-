@@ -19,7 +19,7 @@
     "axios": "^1.13.2",
     "dotenv": "^17.2.3",
     "groq-sdk": "^0.37.0",
-    "gsap": "^3.13.0",
+    "gsap": "^3.14.1",
     "lucide-react": "^0.555.0",
     "next": "16.0.5",
     "pg": "^8.16.3",
@@ -28,6 +28,7 @@
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.0",
     "three": "^0.181.2",
+    "three-bas": "^3.0.0",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {

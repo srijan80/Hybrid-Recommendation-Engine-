@@ -159,7 +159,7 @@ export default function Navbar() {
             <SignedOut>
               <Link
                 href="/sign-in"
-                className="block px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                className="block px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
               >
                 Sign In
               </Link>
@@ -183,7 +183,7 @@ export default function Navbar() {
             localStorage.removeItem("continueConversation");
             window.location.href = "/content";
           }}
-          className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all shadow-md flex items-center justify-center gap-2 mb-4"
+          className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all shadow-md flex items-center justify-center gap-2 mb-4"
         >
           <Sparkles className="w-4 h-4" />
           New Chat

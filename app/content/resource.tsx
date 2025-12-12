@@ -34,12 +34,12 @@ export const Resource: React.FC<ResourceProps> = ({ data }) => {
   // Get icon for resource type
   const getIcon = (type: string) => {
     const lower = type.toLowerCase();
-    if (lower.includes("playlist")) return <List className="w-5 h-5 text-white" />;
-    if (lower.includes("book")) return <BookOpen className="w-5 h-5 text-white" />;
-    if (lower.includes("github")) return <Github className="w-5 h-5 text-white" />;
-    if (lower.includes("documentation") || lower.includes("docs")) return <FileText className="w-5 h-5 text-white" />;
-    if (lower.includes("stackoverflow") || lower.includes("question")) return <MessageSquare className="w-5 h-5 text-white" />;
-    return <Play className="w-5 h-5 text-white" />;
+    if (lower.includes("playlist")) return <List className="w-4 sm:w-5 h-4 sm:h-5 text-white" />;
+    if (lower.includes("book")) return <BookOpen className="w-4 sm:w-5 h-4 sm:h-5 text-white" />;
+    if (lower.includes("github")) return <Github className="w-4 sm:w-5 h-4 sm:h-5 text-white" />;
+    if (lower.includes("documentation") || lower.includes("docs")) return <FileText className="w-4 sm:w-5 h-4 sm:h-5 text-white" />;
+    if (lower.includes("stackoverflow") || lower.includes("question")) return <MessageSquare className="w-4 sm:w-5 h-4 sm:h-5 text-white" />;
+    return <Play className="w-4 sm:w-5 h-4 sm:h-5 text-white" />;
   };
 
   // Get gradient colors for thumbnail based on type
@@ -98,24 +98,24 @@ export const Resource: React.FC<ResourceProps> = ({ data }) => {
   };
 
   return (
-    <div className="w-full space-y-12 py-6">
+    <div className="w-full space-y-6 sm:space-y-8 md:space-y-12 py-4 sm:py-6">
       {display.map((resource, resourceIndex) => (
         <div key={`${resource.type}-${resourceIndex}`}>
           {/* Section Header */}
           <div className="flex items-center gap-3 mb-6">
-            <div className={`${getIconBg(resource.type)} p-2.5 rounded-lg shadow-md`}>
+            <div className={`${getIconBg(resource.type)} p-1.5 sm:p-2.5 rounded-lg shadow-md`}>
               {getIcon(resource.type)}
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
               {resource.type}
             </h2>
-            <span className="text-sm text-gray-500 font-medium">
+            <span className="text-xs sm:text-sm text-gray-500 font-medium">
               ({resource.items.length} {resource.items.length === 1 ? 'resource' : 'resources'})
             </span>
           </div>
 
           {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
             {resource.items.map((item, index) => (
               <a
                 key={`${item.title}-${index}`}
