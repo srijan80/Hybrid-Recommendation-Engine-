@@ -12,11 +12,56 @@ export async function GET() {
   }
 
   try {
-    const chatHistory = await prisma.chatHistory.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
+    // If the new Conversation model exists on the generated client, use it.
+    const clientAny = prisma as any;
+
+    let chatHistory: any[] = [];
+
+    if (clientAny.conversation && typeof clientAny.conversation.findMany === "function") {
+      const conversations = await clientAny.conversation.findMany({
+        where: { userId: user.id },
+        include: { messages: true },
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+      });
+
+      // Map conversations into a shape compatible with the previous chatHistory consumer
+      chatHistory = conversations.map((c: any) => {
+        const firstUser = c.messages.find((m: any) => m.role === "user")?.content ?? "";
+        const assistantCombined = c.messages
+          .filter((m: any) => m.role === "assistant")
+          .map((m: any) => m.content)
+          .join("\n\n");
+
+        return {
+          id: c.id,
+          topic: c.title,
+          query: firstUser,
+          response: assistantCombined,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+          messages: c.messages,
+        };
+      });
+    } else {
+      // Fallback for environments where Prisma client hasn't been regenerated yet
+      const legacy = await (prisma as any).chatHistory.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      });
+
+      chatHistory = legacy.map((h: any) => ({
+        id: h.id,
+        topic: h.topic || h.title || "",
+        query: h.query || "",
+        response: h.response || "",
+        createdAt: h.createdAt,
+        updatedAt: h.createdAt,
+        // Preserve legacy single-response as a single assistant message for compatibility
+        messages: h.response ? [{ role: "assistant", content: h.response, createdAt: h.createdAt }] : [],
+      }));
+    }
 
     const resourceHistory = await prisma.resourceHistory.findMany({
       where: { userId: user.id },

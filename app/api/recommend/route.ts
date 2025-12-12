@@ -269,7 +269,7 @@ export async function POST(req: Request) {
               const updated = await prisma.resourceHistory.update({
                 where: { id: historyId },
                 data: {
-                  topic: topic || existing.topic,
+                  title: topic || existing.title,
                   query: topic || existing.query,
                   resources: resources,
                 },
@@ -279,14 +279,14 @@ export async function POST(req: Request) {
             } else {
               // fallback to create if not found
               const created = await prisma.resourceHistory.create({
-                data: { userId: user.id, topic, query: topic, resources },
+                data: { userId: user.id, title: topic, query: topic, resources },
               });
               savedResourceItem = created;
               console.log("✅ Resource history created (fallback)");
             }
           } else {
             const created = await prisma.resourceHistory.create({
-              data: { userId: user.id, topic, query: topic, resources },
+              data: { userId: user.id, title: topic, query: topic, resources },
             });
             savedResourceItem = created;
             console.log("✅ Resource history saved");
@@ -319,47 +319,74 @@ export async function POST(req: Request) {
 
     const aiResponse = chatCompletion.choices[0]?.message?.content || "No response";
 
-    // ✅ SAVE TO DATABASE (create or update existing if historyId provided)
-    let savedChatItem = null;
+    // ✅ SAVE TO DATABASE (use Conversation + Message models when available, else fallback)
+    let savedConversation: any = null;
     if (user) {
       try {
-        if (historyId) {
-          const existing = await prisma.chatHistory.findFirst({ where: { id: historyId, userId: user.id } });
-          if (existing) {
-            // Append both user's latest message and assistant reply to preserve conversation transcript
-            const combined = `${existing.response || ""}\n\nUser: ${topic}\nAssistant: ${aiResponse}`;
-            const updated = await prisma.chatHistory.update({
-              where: { id: historyId },
-              data: {
-                topic: existing.topic || topic,
-                query: existing.query || topic,
-                response: combined,
-              },
-            });
-            savedChatItem = updated;
-            console.log("✅ Chat history updated (appended user+assistant)");
+        const clientAny = prisma as any;
+
+        if (clientAny.conversation && typeof clientAny.conversation.create === "function") {
+          if (historyId) {
+            const existing = await clientAny.conversation.findFirst({ where: { id: historyId, userId: user.id } });
+            if (existing) {
+              // Add user message, then assistant message
+              await clientAny.message.create({ data: { conversationId: existing.id, role: "user", content: topic } });
+              await clientAny.message.create({ data: { conversationId: existing.id, role: "assistant", content: aiResponse } });
+
+              const updated = await clientAny.conversation.findUnique({ where: { id: existing.id }, include: { messages: true } });
+              savedConversation = updated;
+              console.log("✅ Conversation updated with new messages");
+            } else {
+              // Fallback to create conversation using new models
+              const created = await clientAny.conversation.create({
+                data: {
+                  userId: user.id,
+                  title: topic,
+                  messages: { create: [{ role: "user", content: topic }, { role: "assistant", content: aiResponse }] },
+                },
+                include: { messages: true },
+              });
+              savedConversation = created;
+              console.log("✅ Conversation created (new models)");
+            }
           } else {
-            const created = await prisma.chatHistory.create({ data: { userId: user.id, topic, query: topic, response: `User: ${topic}\nAssistant: ${aiResponse}` } });
-            savedChatItem = created;
-            console.log("✅ Chat history created (fallback)");
+            const created = await clientAny.conversation.create({
+              data: {
+                userId: user.id,
+                title: topic,
+                messages: { create: [{ role: "user", content: topic }, { role: "assistant", content: aiResponse }] },
+              },
+              include: { messages: true },
+            });
+            savedConversation = created;
+            console.log("✅ Conversation created");
           }
         } else {
-          const created = await prisma.chatHistory.create({ data: { userId: user.id, topic, query: topic, response: `User: ${topic}\nAssistant: ${aiResponse}` } });
-          savedChatItem = created;
-          console.log("✅ Chat history saved");
+          // Legacy fallback: use chatHistory table
+          if (historyId) {
+            const existing = await (prisma as any).chatHistory.findFirst({ where: { id: historyId, userId: user.id } });
+            if (existing) {
+              const combined = `${existing.response || ""}\n\nUser: ${topic}\nAssistant: ${aiResponse}`;
+              const updated = await (prisma as any).chatHistory.update({ where: { id: historyId }, data: { topic: existing.topic || topic, query: existing.query || topic, response: combined } });
+              savedConversation = updated;
+              console.log("✅ Legacy chatHistory updated (appended user+assistant)");
+            } else {
+              const created = await (prisma as any).chatHistory.create({ data: { userId: user.id, topic, query: topic, response: `User: ${topic}\nAssistant: ${aiResponse}` } });
+              savedConversation = created;
+              console.log("✅ Legacy chatHistory created (fallback)");
+            }
+          } else {
+            const created = await (prisma as any).chatHistory.create({ data: { userId: user.id, topic, query: topic, response: `User: ${topic}\nAssistant: ${aiResponse}` } });
+            savedConversation = created;
+            console.log("✅ Legacy chatHistory saved");
+          }
         }
       } catch (dbError) {
-        console.error("❌ Failed to save chat history:", dbError);
+        console.error("❌ Failed to save conversation:", dbError);
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      topic,
-      isResourceMode: false,
-      aiResponse,
-      item: savedChatItem,
-    });
+    return NextResponse.json({ success: true, topic, isResourceMode: false, aiResponse, item: savedConversation });
   } catch (error: any) {
     console.error("❌ Error:", error);
     return NextResponse.json({ error: "Server error", details: error.message }, { status: 500 });

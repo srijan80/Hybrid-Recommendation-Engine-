@@ -51,15 +51,23 @@ export default function ContentPage() {
         .then((data) => {
           if (data.item) {
             if (continueType === "chat") {
-              // Load chat conversation
-              setChatMessages([
-                { role: "user", content: data.item.query },
-                { role: "assistant", content: data.item.response },
-              ]);
+              // Load chat conversation - support both new Conversation/messages shape and legacy chatHistory
+              const item = data.item;
+              if (item?.messages && Array.isArray(item.messages) && item.messages.length > 0) {
+                // Map messages array into chatMessages preserving order
+                const mapped: Message[] = item.messages.map((m: any) => ({ role: m.role, content: m.content }));
+                setChatMessages(mapped);
+              } else {
+                // Fallback to legacy single-query/response shape
+                setChatMessages([
+                  { role: "user", content: item.query || item.title || "" },
+                  { role: "assistant", content: item.response || "" },
+                ]);
+              }
               setResourceMode(false);
               // Track which history item we're continuing so subsequent submits update it
               setCurrentHistoryId(continueId);
-              setCurrentHistoryItem(data.item);
+              setCurrentHistoryItem(item);
             } else if (continueType === "resources") {
               // Load resource search
               setResourcesData(data.item.resources || []);

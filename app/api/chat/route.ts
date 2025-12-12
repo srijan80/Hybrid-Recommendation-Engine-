@@ -13,15 +13,24 @@ export async function POST(req: Request) {
   }
 
   try {
-    const chat = await prisma.chatHistory.create({
-      data: {
-        userId: user.id,
-        topic: topic || 'General', // Add default if topic is missing
-        query,
-        response,
-      },
-    });
-    return NextResponse.json(chat);
+    const clientAny = prisma as any;
+
+    if (clientAny.conversation && typeof clientAny.conversation.create === "function") {
+      // Create a conversation and associated messages using new models
+      const conversation = await clientAny.conversation.create({
+        data: {
+          userId: user.id,
+          title: topic || 'General',
+          messages: { create: [{ role: 'user', content: query }, { role: 'assistant', content: response }] },
+        },
+        include: { messages: true },
+      });
+      return NextResponse.json(conversation);
+    }
+
+    // Fallback to legacy chatHistory
+    const legacy = await clientAny.chatHistory.create({ data: { userId: user.id, topic: topic || 'General', query, response } });
+    return NextResponse.json(legacy);
 
   } catch (error) {
      console.error("Failed to save chat to history:", error);

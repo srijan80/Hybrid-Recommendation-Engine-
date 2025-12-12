@@ -7,37 +7,55 @@ datasource db {
 }
 
 model User {
-  id              String            @id @default(cuid())
-  clerkId         String            @unique
-  email           String?
-  name            String?
-  imageUrl        String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  chatHistory     ChatHistory[]
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String?
+  name      String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  conversations   Conversation[]
   resourceHistory ResourceHistory[]
 }
 
-model ChatHistory {
+// New: Conversation model (thread of messages)
+model Conversation {
   id        String   @id @default(cuid())
   userId    String
-  topic     String
-  query     String
-  response  String
-  createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, createdAt])
+  
+  title     String   // First message or AI-generated title
+  messages  Message[] // Multiple messages in one conversation
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  
+  @@index([userId, updatedAt])
 }
 
+// New: Individual messages within a conversation
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  role           String       // "user" or "assistant"
+  content        String       @db.Text
+  createdAt      DateTime     @default(now())
+  
+  @@index([conversationId, createdAt])
+}
+
+// Keep for backward compatibility (or delete old ChatHistory model)
 model ResourceHistory {
   id        String   @id @default(cuid())
   userId    String
-  topic     String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title     String
   query     String
   resources Json
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  
   @@index([userId, createdAt])
 }

@@ -20,15 +20,15 @@ export async function DELETE(
     const type = searchParams.get("type");
 
     if (type === "chat") {
-      const chatItem = await prisma.chatHistory.findFirst({
+      const conversation = await prisma.conversation.findFirst({
         where: { id, userId: user.id },
       });
 
-      if (!chatItem) {
+      if (!conversation) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
-      await prisma.chatHistory.delete({ where: { id } });
+      await prisma.conversation.delete({ where: { id } });
     } else if (type === "resources") {
       const resourceItem = await prisma.resourceHistory.findFirst({
         where: { id, userId: user.id },
@@ -67,15 +67,39 @@ export async function GET(
     const type = searchParams.get("type");
 
     if (type === "chat") {
-      const chatItem = await prisma.chatHistory.findFirst({
-        where: { id, userId: user.id },
-      });
+      const clientAny = prisma as any;
 
-      if (!chatItem) {
+      if (clientAny.conversation && typeof clientAny.conversation.findFirst === "function") {
+        const conversation = await clientAny.conversation.findFirst({
+          where: { id, userId: user.id },
+          include: { messages: true },
+        });
+
+        if (!conversation) {
+          return NextResponse.json({ error: "Not found" }, { status: 404 });
+        }
+
+        return NextResponse.json({ item: conversation, type: "chat" });
+      }
+
+      // Fallback: legacy chatHistory
+      const legacy = await (prisma as any).chatHistory.findFirst({ where: { id, userId: user.id } });
+      if (!legacy) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
-      return NextResponse.json({ item: chatItem, type: "chat" });
+      // Map legacy to compatible shape: include messages as single assistant message
+      const mapped = {
+        id: legacy.id,
+        title: legacy.topic || legacy.title || "",
+        query: legacy.query || "",
+        response: legacy.response || "",
+        createdAt: legacy.createdAt,
+        updatedAt: legacy.createdAt,
+        messages: legacy.response ? [{ role: "assistant", content: legacy.response, createdAt: legacy.createdAt }] : [],
+      };
+
+      return NextResponse.json({ item: mapped, type: "chat" });
     } else if (type === "resources") {
       const resourceItem = await prisma.resourceHistory.findFirst({
         where: { id, userId: user.id },
@@ -111,7 +135,23 @@ export async function PATCH(
     const { topic, query, response, resources, type } = await req.json();
 
     if (type === "chat") {
-      const updated = await prisma.chatHistory.update({
+      const clientAny = prisma as any;
+
+      if (clientAny.conversation && typeof clientAny.conversation.update === "function") {
+        // Update conversation title only. Message edits are not handled here.
+        const updated = await clientAny.conversation.update({
+          where: { id },
+          data: {
+            title: topic || undefined,
+          },
+          include: { messages: true },
+        });
+
+        return NextResponse.json({ success: true, item: updated });
+      }
+
+      // Fallback: update legacy chatHistory fields
+      const updatedLegacy = await (prisma as any).chatHistory.update({
         where: { id },
         data: {
           topic: topic || undefined,
@@ -120,12 +160,12 @@ export async function PATCH(
         },
       });
 
-      return NextResponse.json({ success: true, item: updated });
+      return NextResponse.json({ success: true, item: updatedLegacy });
     } else if (type === "resources") {
       const updated = await prisma.resourceHistory.update({
         where: { id },
         data: {
-          topic: topic || undefined,
+          title: topic || undefined,
           query: query || undefined,
           resources: resources || undefined,
         },
