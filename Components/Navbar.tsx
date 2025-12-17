@@ -62,7 +62,7 @@ export default function Navbar() {
       const response = await fetch("/api/history");
       const data = await response.json();
       setChatHistory(data.chatHistory || []);
-      setResourceHistory(data.resourceHistory.map(item => ({ ...item, topic: item.title })) || []);
+      setResourceHistory(data.resourceHistory.map((item: { id: string; title: string; query: string; resources: any; createdAt: string; updatedAt: string }) => ({ ...item, topic: item.title })) || []);
     } catch (error) {
       console.error("Failed to fetch history:", error);
     }
