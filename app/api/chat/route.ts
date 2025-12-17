@@ -1,39 +1,58 @@
-// api/chat/route.ts
+// app/api/chat/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getOrCreateUser } from "@/lib/auth";
 
+// POST - Create new conversation
 export async function POST(req: Request) {
-  const { query, response, topic } = await req.json();
-  
   const user = await getOrCreateUser();
 
   if (!user) {
-    return new NextResponse(JSON.stringify({ error: "User not authenticated or synced to DB" }), { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const clientAny = prisma as any;
+    const { userMessage, assistantResponse, title } = await req.json();
 
-    if (clientAny.conversation && typeof clientAny.conversation.create === "function") {
-      // Create a conversation and associated messages using new models
-      const conversation = await clientAny.conversation.create({
+    // Generate title from first message if not provided
+    const conversationTitle = title || userMessage.substring(0, 50) + (userMessage.length > 50 ? '...' : '');
+
+    // Create new conversation
+    const conversation = await prisma.conversation.create({
+      data: {
+        userId: user.id,
+        title: conversationTitle,
+      },
+    });
+
+    // Create user message
+    if (userMessage) {
+      await prisma.message.create({
         data: {
-          userId: user.id,
-          title: topic || 'General',
-          messages: { create: [{ role: 'user', content: query }, { role: 'assistant', content: response }] },
+          conversationId: conversation.id,
+          role: "user",
+          content: userMessage,
         },
-        include: { messages: true },
       });
-      return NextResponse.json(conversation);
     }
 
-    // Fallback to legacy chatHistory
-    const legacy = await clientAny.chatHistory.create({ data: { userId: user.id, topic: topic || 'General', query, response } });
-    return NextResponse.json(legacy);
+    // Create assistant response
+    if (assistantResponse) {
+      await prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          role: "assistant",
+          content: assistantResponse,
+        },
+      });
+    }
 
+    return NextResponse.json({ 
+      success: true, 
+      conversationId: conversation.id 
+    });
   } catch (error) {
-     console.error("Failed to save chat to history:", error);
-     return new NextResponse(JSON.stringify({ error: "Failed to save chat history" }), { status: 500 });
+    console.error("Failed to create chat:", error);
+    return NextResponse.json({ error: "Failed to create chat" }, { status: 500 });
   }
 }

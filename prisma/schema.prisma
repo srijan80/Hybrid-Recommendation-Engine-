@@ -1,3 +1,5 @@
+// schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -16,19 +18,20 @@ model User {
   updatedAt DateTime @updatedAt
   
   conversations   Conversation[]
+  chatHistory     ChatHistory[]     // Legacy support
   resourceHistory ResourceHistory[]
 }
 
 // New: Conversation model (thread of messages)
 model Conversation {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  title     String   // First message or AI-generated title
+  title     String @default("Untitled")
   messages  Message[] // Multiple messages in one conversation
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
   
   @@index([userId, updatedAt])
 }
@@ -46,13 +49,26 @@ model Message {
   @@index([conversationId, createdAt])
 }
 
-// Keep for backward compatibility (or delete old ChatHistory model)
+// Legacy model - for backward compatibility
+model ChatHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  topic     String
+  query     String   @db.Text
+  response  String   @db.Text
+  createdAt DateTime @default(now())
+  
+  @@index([userId, createdAt])
+}
+
 model ResourceHistory {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  title     String
+  title     String @default("Untitled")
   query     String
   resources Json
   createdAt DateTime @default(now())

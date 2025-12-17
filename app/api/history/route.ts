@@ -12,57 +12,34 @@ export async function GET() {
   }
 
   try {
-    // If the new Conversation model exists on the generated client, use it.
-    const clientAny = prisma as any;
+    // Fetch conversations with messages
+    const conversations = await prisma.conversation.findMany({
+      where: { userId: user.id },
+      include: { messages: { orderBy: { createdAt: "asc" } } },
+      orderBy: { updatedAt: "desc" },
+      take: 20,
+    });
 
-    let chatHistory: any[] = [];
+    // Map to chat history format for UI compatibility
+    const chatHistory = conversations.map((c) => {
+      const firstUser = c.messages.find((m) => m.role === "user")?.content ?? "";
+      const assistantCombined = c.messages
+        .filter((m) => m.role === "assistant")
+        .map((m) => m.content)
+        .join("\n\n");
 
-    if (clientAny.conversation && typeof clientAny.conversation.findMany === "function") {
-      const conversations = await clientAny.conversation.findMany({
-        where: { userId: user.id },
-        include: { messages: true },
-        orderBy: { updatedAt: "desc" },
-        take: 20,
-      });
+      return {
+        id: c.id,
+        topic: c.title,
+        query: firstUser,
+        response: assistantCombined,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        messages: c.messages,
+      };
+    });
 
-      // Map conversations into a shape compatible with the previous chatHistory consumer
-      chatHistory = conversations.map((c: any) => {
-        const firstUser = c.messages.find((m: any) => m.role === "user")?.content ?? "";
-        const assistantCombined = c.messages
-          .filter((m: any) => m.role === "assistant")
-          .map((m: any) => m.content)
-          .join("\n\n");
-
-        return {
-          id: c.id,
-          topic: c.title,
-          query: firstUser,
-          response: assistantCombined,
-          createdAt: c.createdAt,
-          updatedAt: c.updatedAt,
-          messages: c.messages,
-        };
-      });
-    } else {
-      // Fallback for environments where Prisma client hasn't been regenerated yet
-      const legacy = await (prisma as any).chatHistory.findMany({
-        where: { userId: user.id },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-      });
-
-      chatHistory = legacy.map((h: any) => ({
-        id: h.id,
-        topic: h.topic || h.title || "",
-        query: h.query || "",
-        response: h.response || "",
-        createdAt: h.createdAt,
-        updatedAt: h.createdAt,
-        // Preserve legacy single-response as a single assistant message for compatibility
-        messages: h.response ? [{ role: "assistant", content: h.response, createdAt: h.createdAt }] : [],
-      }));
-    }
-
+    // Fetch resource history
     const resourceHistory = await prisma.resourceHistory.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
