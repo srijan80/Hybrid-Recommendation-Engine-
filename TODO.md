@@ -1,0 +1,5 @@
+- [x] Move chat and resources toggle buttons from header to above the input form
+- [x] Remove the header div since buttons are being relocated
+- [x] Adjust the input div layout to accommodate the buttons above the form
+- [x] Enhance button coloring and styling with improved CSS (hover effects, transitions, better active states)
+- [x] Change overall background to white and adjust text colors accordingly
