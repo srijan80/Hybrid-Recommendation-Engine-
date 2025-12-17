@@ -1,5 +1,5 @@
 // lib/prisma.ts
-import { PrismaClient } from "@prisma/client";
+const PrismaClient = require("@prisma/client").PrismaClient;
 import { PrismaNeon } from "@prisma/adapter-neon";
 import ws from "ws";
 
@@ -9,7 +9,7 @@ const connectionString = process.env.DATABASE_URL!;
 
 const adapter = new PrismaNeon({ connectionString });
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
+const globalForPrisma = globalThis as unknown as { prisma: any | undefined };
 
 export const prisma =
   globalForPrisma.prisma ??
