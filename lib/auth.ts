@@ -1,9 +1,8 @@
 // lib/auth.ts
 import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "./prisma";
-import { User } from "@prisma/client";
 
-export async function getOrCreateUser(): Promise<User | null> {
+export async function getOrCreateUser(): Promise<any | null> {
   const clerkUser = await currentUser();
   
   if (!clerkUser) {
