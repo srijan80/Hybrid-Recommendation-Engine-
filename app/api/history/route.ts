@@ -2,7 +2,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getOrCreateUser } from "@/lib/auth";
-import { Conversation, Message } from "@prisma/client";
 
 // GET all history
 export async function GET() {
@@ -22,7 +21,7 @@ export async function GET() {
     });
 
     // Map to chat history format for UI compatibility
-    const chatHistory = conversations.map((c: Conversation & { messages: Message[] }) => {
+    const chatHistory = conversations.map((c) => {
       const firstUser = c.messages.find((m) => m.role === "user")?.content ?? "";
       const assistantCombined = c.messages
         .filter((m) => m.role === "assistant")
