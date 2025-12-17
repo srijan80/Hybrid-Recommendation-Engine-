@@ -1,5 +1,6 @@
 //app/content/page.tsx
 "use client";
+import { Suspense } from "react";
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 // Force redeploy
@@ -23,7 +24,7 @@ interface ResourceSection {
   items: any[];
 }
 
-export default function ContentPage() {
+const ContentPage = () => {
   const searchParams = useSearchParams();
   const [input, setInput] = useState("");
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
@@ -398,4 +399,8 @@ export default function ContentPage() {
       </div>
     </div>
   );
+}
+
+export default function Page() {
+  return <Suspense fallback={<div>Loading...</div>}><ContentPage /></Suspense>;
 }
