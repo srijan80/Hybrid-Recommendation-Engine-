@@ -1,6 +1,6 @@
 //app/content/page.tsx
-export const dynamic = 'force-dynamic';
 "use client";
+export const dynamic = 'force-dynamic';
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Send, Sparkles, User, Bot } from "lucide-react";
@@ -397,5 +397,3 @@ export default function ContentPage() {
     </div>
   );
 }
-
-export const dynamic = 'force-dynamic';
