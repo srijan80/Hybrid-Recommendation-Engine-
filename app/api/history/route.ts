@@ -23,9 +23,12 @@ export async function GET() {
     // Map to chat history format for UI compatibility
     // @ts-ignore
     const chatHistory = conversations.map((c) => {
+      // @ts-ignore
       const firstUser = c.messages.find((m) => m.role === "user")?.content ?? "";
       const assistantCombined = c.messages
+        // @ts-ignore
         .filter((m) => m.role === "assistant")
+        // @ts-ignore
         .map((m) => m.content)
         .join("\n\n");
 
