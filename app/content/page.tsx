@@ -396,3 +396,5 @@ export default function ContentPage() {
     </div>
   );
 }
+
+export const dynamic = 'force-dynamic';
