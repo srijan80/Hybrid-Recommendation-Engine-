@@ -1,4 +1,5 @@
 //app/content/page.tsx
+export const dynamic = 'force-dynamic';
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
