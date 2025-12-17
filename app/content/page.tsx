@@ -2,6 +2,7 @@
 "use client";
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+// Force redeploy
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Send, Sparkles, User, Bot } from "lucide-react";
