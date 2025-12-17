@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import Link from 'next/link';
+import { Resource } from './resource';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 type ResourceGroup = { type: string; items: any[] };
@@ -22,6 +23,20 @@ export default function ChatContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<'chat' | 'resources'>('chat');
   const [historyId, setHistoryId] = useState<string | null>(null);
+
+  const chatSuggestions = [
+    "What is machine learning?",
+    "Explain quantum computing",
+    "How does blockchain work?",
+    "What are microservices?"
+  ];
+
+  const resourceSuggestions = [
+    "Tutorial for Python",
+    "JavaScript basics",
+    "Data structures in C++",
+    "Web development with React"
+  ];
 
   // 🔁 Load history from URL on mount or param change
   useEffect(() => {
@@ -72,6 +87,11 @@ export default function ChatContent() {
   }, [searchParams]);
 
   // ✨ Auto-scroll not implemented here, but you can add it later
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setInput(suggestion);
+    handleSubmit();
+  };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -137,33 +157,7 @@ export default function ChatContent() {
     }
   };
 
-  // Helper for resource rendering
-  const renderResources = () => {
-    if (resources.length === 0) {
-      return <p className="text-gray-600">No resources available.</p>;
-    }
 
-    return resources.map((group, idx) => (
-      <div key={idx} className="mb-6">
-        <h3 className="text-lg font-bold text-yellow-600 mb-2">{group.type}</h3>
-        <ul className="space-y-2">
-          {group.items.map((item: any, i: number) => (
-            <li key={i} className="bg-gray-100 p-3 rounded">
-              <Link
-                href={item.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-blue-600 hover:underline block"
-              >
-                {item.title}
-              </Link>
-              <p className="text-sm text-gray-600 mt-1">{item.description}</p>
-            </li>
-          ))}
-        </ul>
-      </div>
-    ));
-  };
 
   return (
     <div className="flex flex-col h-screen bg-white text-gray-900">
@@ -172,8 +166,19 @@ export default function ChatContent() {
         {mode === 'chat' ? (
           <div className="max-w-3xl mx-auto space-y-4">
             {messages.length === 0 && !historyId && (
-              <div className="text-center text-gray-600 mt-20">
-                Type a question to start a new chat!
+              <div className="text-center mt-20">
+                <div className="text-gray-600 mb-8">Type a question to start a new chat!</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                  {chatSuggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleSuggestionClick(suggestion)}
+                      className="bg-white border border-gray-200 rounded-lg p-4 text-left hover:shadow-md transition-shadow duration-200 hover:border-blue-300"
+                    >
+                      <div className="text-gray-900 font-medium">{suggestion}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             {messages.map((msg, i) => (
@@ -219,11 +224,26 @@ export default function ChatContent() {
           </div>
         ) : (
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-xl font-bold mb-4">Learning Resources</h2>
+            
             {isLoading ? (
               <p className="text-gray-600">Fetching resources...</p>
+            ) : resources.length === 0 && !historyId ? (
+              <div className="text-center mt-20">
+                <div className="text-gray-600 mb-8">Enter a topic to get learning resources!</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                  {resourceSuggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleSuggestionClick(suggestion)}
+                      className="bg-white border border-gray-200 rounded-lg p-4 text-left hover:shadow-md transition-shadow duration-200 hover:border-purple-300"
+                    >
+                      <div className="text-gray-900 font-medium">{suggestion}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             ) : (
-              renderResources()
+              <Resource data={resources} />
             )}
           </div>
         )}
@@ -234,7 +254,11 @@ export default function ChatContent() {
         {/* Toggle Buttons */}
         <div className="flex justify-center gap-2 mb-4">
           <button
-            onClick={() => setMode('chat')}
+            onClick={() => {
+              setMode('chat');
+              setResources([]);
+              setHistoryId(null);
+            }}
             className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105 ${
               mode === 'chat'
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50'
@@ -244,7 +268,11 @@ export default function ChatContent() {
             <MessageCircle size={16} /> Chat
           </button>
           <button
-            onClick={() => setMode('resources')}
+            onClick={() => {
+              setMode('resources');
+              setMessages([]);
+              setHistoryId(null);
+            }}
             className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105 ${
               mode === 'resources'
                 ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'

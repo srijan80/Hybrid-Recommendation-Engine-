@@ -3,3 +3,7 @@
 - [x] Adjust the input div layout to accommodate the buttons above the form
 - [x] Enhance button coloring and styling with improved CSS (hover effects, transitions, better active states)
 - [x] Change overall background to white and adjust text colors accordingly
+- [x] Update API to fetch 3 YouTube playlists instead of 2
+- [x] Replace simple resource rendering with beautiful card-based Resource component
+- [x] Add 4 quick-suggestion cards for chat mode
+- [x] Add 4 quick-suggestion cards for resource mode

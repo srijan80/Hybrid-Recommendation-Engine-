@@ -50,7 +50,7 @@ async function fetchYouTubePlaylists(topic: string, lang?: string) {
     const exclude = lang ? ALL_LANGS.filter((l) => l !== lang) : [];
     const excludeStr = exclude.length ? ` ${exclude.map((l) => `-${l}`).join(' ')}` : '';
     const searchQuery = encodeURIComponent(`${topic} ${langPart}course complete${excludeStr}`);
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=playlist&maxResults=2&key=${YOUTUBE_API_KEY}`;
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=playlist&maxResults=3&key=${YOUTUBE_API_KEY}`;
     const response = await fetch(url);
     const data = await response.json();
     if (!data.items || data.items.length === 0) return [];
