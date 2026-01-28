@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SignedOut, SignedIn, UserButton } from "@clerk/nextjs";
+import { SignedOut, SignedIn, UserButton, useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 
 
@@ -40,13 +40,20 @@ export default function Navbar() {
   const [editValue, setEditValue] = useState("");
   const router = useRouter();
 
+  const { isSignedIn } = useUser();
+
   useEffect(() => {
+    if (!isSignedIn) {
+      setIsLoading(false);
+      return;
+    }
+
     fetchHistory();
 
     // Listen for history updates from content page
     const handleHistoryUpdate = () => {
       console.log("History update event received");
-      fetchHistory();
+      if (isSignedIn) fetchHistory();
     };
 
     window.addEventListener("historyUpdated", handleHistoryUpdate);
@@ -54,7 +61,7 @@ export default function Navbar() {
     return () => {
       window.removeEventListener("historyUpdated", handleHistoryUpdate);
     };
-  }, []);
+  }, [isSignedIn]);
 
   const fetchHistory = async () => {
     setIsLoading(true);

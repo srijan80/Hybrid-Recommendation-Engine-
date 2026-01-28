@@ -1,7 +1,7 @@
 // app/api/history/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getOrCreateUser } from "@/lib/auth";
+import { getOrCreateUserFromAuth } from "@/lib/auth";
 
 // Define message type
 type Message = {
@@ -24,10 +24,11 @@ type ConversationWithMessages = {
 
 export async function GET(req: Request) {
   try {
-    // Use getOrCreateUser to ensure user exists in DB
-    const user = await getOrCreateUser();
+    // Use the API-route-safe auth function
+    const user = await getOrCreateUserFromAuth();
 
     if (!user) {
+      console.warn("❌ History GET: User not found or not authenticated");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -87,7 +88,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ chatHistory, resourceHistory });
   } catch (error) {
-    console.error("Failed to fetch history:", error);
+    console.error("❌ Failed to fetch history:", error);
     return NextResponse.json(
       { error: "Failed to fetch history" },
       { status: 500 }

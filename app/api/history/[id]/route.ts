@@ -1,14 +1,14 @@
 // app/api/history/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getOrCreateUser } from "@/lib/auth";
+import { getOrCreateUserFromAuth } from "@/lib/auth";
 
 // DELETE single history item
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getOrCreateUser();
+  const user = await getOrCreateUserFromAuth();
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -55,7 +55,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getOrCreateUser();
+  const user = await getOrCreateUserFromAuth();
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -86,7 +86,7 @@ export async function GET(
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
-      // Map legacy to compatible shape: include messages as single assistant message
+      // Map legacy to compatible shape
       const mapped = {
         id: legacy.id,
         title: legacy.topic || legacy.title || "",
@@ -122,7 +122,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getOrCreateUser();
+  const user = await getOrCreateUserFromAuth();
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -136,7 +136,6 @@ export async function PATCH(
       const clientAny = prisma as any;
 
       if (clientAny.conversation && typeof clientAny.conversation.update === "function") {
-        // Update conversation title only. Message edits are not handled here.
         const updated = await clientAny.conversation.update({
           where: { id },
           data: {
@@ -148,7 +147,7 @@ export async function PATCH(
         return NextResponse.json({ success: true, item: updated });
       }
 
-      // Fallback: update legacy chatHistory fields
+      // Fallback: update legacy chatHistory
       const updatedLegacy = await (prisma as any).chatHistory.update({
         where: { id },
         data: {
