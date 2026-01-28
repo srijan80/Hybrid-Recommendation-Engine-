@@ -60,15 +60,26 @@ export default function Navbar() {
     setIsLoading(true);
     try {
       const response = await fetch("/api/history");
+      if (!response.ok) {
+        console.error("Failed to fetch history:", response.status);
+        setChatHistory([]);
+        setResourceHistory([]);
+        return;
+      }
       const data = await response.json();
       setChatHistory(data.chatHistory || []);
-      setResourceHistory((data.resourceHistory as { id: string; title: string; query: string; resources: any; createdAt: string; updatedAt: string }[]).map((item) => ({ ...item, topic: item.title })) || []);
+      const resourceData = (data.resourceHistory || []).map((item: any) => ({ ...item, topic: item.title }));
+      setResourceHistory(resourceData);
     } catch (error) {
       console.error("Failed to fetch history:", error);
+      setChatHistory([]);
+      setResourceHistory([]);
     }
     setIsLoading(false);
   };
 
+
+  
   // Delete history item
   const handleDelete = async (id: string, type: "chat" | "resources") => {
     if (!confirm("Delete this item?")) return;

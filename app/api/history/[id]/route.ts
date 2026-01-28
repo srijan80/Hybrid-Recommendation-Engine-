@@ -67,23 +67,21 @@ export async function GET(
     const type = searchParams.get("type");
 
     if (type === "chat") {
-      const clientAny = prisma as any;
+      // Try new conversation model first
+      const conversation = await prisma.conversation.findFirst({
+        where: { id, userId: user.id },
+        include: { messages: { orderBy: { createdAt: "asc" } } },
+      });
 
-      if (clientAny.conversation && typeof clientAny.conversation.findFirst === "function") {
-        const conversation = await clientAny.conversation.findFirst({
-          where: { id, userId: user.id },
-          include: { messages: true },
-        });
-
-        if (!conversation) {
-          return NextResponse.json({ error: "Not found" }, { status: 404 });
-        }
-
+      if (conversation) {
         return NextResponse.json({ item: conversation, type: "chat" });
       }
 
       // Fallback: legacy chatHistory
-      const legacy = await (prisma as any).chatHistory.findFirst({ where: { id, userId: user.id } });
+      const legacy = await (prisma as any).chatHistory.findFirst({ 
+        where: { id, userId: user.id } 
+      });
+      
       if (!legacy) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }

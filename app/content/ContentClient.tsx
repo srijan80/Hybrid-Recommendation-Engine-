@@ -122,26 +122,44 @@ export default function ChatContent() {
         }),
       });
 
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status} ${res.statusText}`);
+      }
+
       const data = await res.json();
+
+      if (!data) {
+        throw new Error('No data returned from API');
+      }
 
       if (mode === 'chat') {
         const aiResponse = data.aiResponse || data.response || 'No response received.';
         setMessages((prev) => [...prev, { role: 'assistant', content: aiResponse }]);
         setResources([]);
 
-        // Update URL with new history ID if created
+        // Set history ID without router.push (prevents state reset)
         if (data.item?.id && isNewQuery) {
-          router.push(`/content?continue=chat&id=${data.item.id}`);
           setHistoryId(data.item.id);
+          // Update URL silently with replace
+          window.history.replaceState(
+            null,
+            '',
+            `/content?continue=chat&id=${data.item.id}`
+          );
         }
       } else {
         setResources(data.resources || []);
         setMessages([]);
 
-        // Update URL for new resource history
+        // Set history ID without router.push (prevents state reset)
         if (data.historyId && isNewQuery) {
-          router.push(`/content?continue=resources&id=${data.historyId}`);
           setHistoryId(data.historyId);
+          // Update URL silently with replace
+          window.history.replaceState(
+            null,
+            '',
+            `/content?continue=resources&id=${data.historyId}`
+          );
         }
       }
 

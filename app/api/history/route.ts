@@ -23,28 +23,32 @@ type ConversationWithMessages = {
 };
 
 export async function GET(req: Request) {
-  const user = await getOrCreateUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    // Use getOrCreateUser to ensure user exists in DB
+    const user = await getOrCreateUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const url = new URL(req.url);
     const id = url.searchParams.get("id");
 
+    // If ID is provided, fetch single item
     if (id) {
-      // Fetch a single conversation and/or resource by ID for "continue"
-      const conversation = await prisma.conversation.findUnique({
-        where: { id },
+      const conversation = await prisma.conversation.findFirst({
+        where: { id, userId: user.id },
         include: { messages: { orderBy: { createdAt: "asc" } } },
       });
 
-      const resourceItem = await prisma.resourceHistory.findUnique({
-        where: { id },
+      const resourceItem = await prisma.resourceHistory.findFirst({
+        where: { id, userId: user.id },
       });
 
-      return NextResponse.json({ conversation, resourceItem });
+      return NextResponse.json({ 
+        conversation: conversation || null, 
+        resourceItem: resourceItem || null 
+      });
     }
 
     // Fetch full history (for sidebar)

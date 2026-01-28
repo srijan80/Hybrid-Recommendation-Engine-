@@ -260,6 +260,7 @@ export async function POST(req: Request) {
 
       // ✅ SAVE TO DATABASE (create or update if historyId provided)
       let savedResourceItem = null;
+      let finalHistoryId = historyId;
       if (user) {
         try {
           if (historyId) {
@@ -282,6 +283,7 @@ export async function POST(req: Request) {
                 data: { userId: user.id, title: topic, query: topic, resources },
               });
               savedResourceItem = created;
+              finalHistoryId = created.id;
               console.log("✅ Resource history created (fallback)");
             }
           } else {
@@ -289,6 +291,7 @@ export async function POST(req: Request) {
               data: { userId: user.id, title: topic, query: topic, resources },
             });
             savedResourceItem = created;
+            finalHistoryId = created.id;
             console.log("✅ Resource history saved");
           }
         } catch (dbError) {
@@ -302,6 +305,8 @@ export async function POST(req: Request) {
         isResourceMode: true,
         aiResponse: `Resources for ${topic}`,
         resources,
+        item: savedResourceItem,
+        historyId: finalHistoryId,
       });
     }
 
